@@ -14,16 +14,20 @@ pub fn provider_supports_prompt(provider: &str) -> bool {
     )
 }
 
-/// Builds a short prompt that biases recognition toward the user's custom terms
-/// and toward the Chinese script they read. Returns `None` when there is nothing
-/// useful to say.
-pub fn build_transcription_prompt(dictionary: &[String], chinese_script: &str) -> Option<String> {
-    let (lead, separator, end) = match chinese_script::normalize(chinese_script) {
-        chinese_script::TRADITIONAL => ("以下是台灣繁體中文與英文夾雜的口述內容。", "、", "。"),
-        chinese_script::SIMPLIFIED => ("以下是简体中文与英文夹杂的口述内容。", "、", "。"),
-        _ => ("", ", ", "."),
-    };
+/// Label that introduces the vocabulary list; also used to spot prompt echoes.
+fn vocabulary_label(chinese_script: &str) -> (&'static str, &'static str, &'static str) {
+    match chinese_script::normalize(chinese_script) {
+        chinese_script::TRADITIONAL => ("詞彙：", "、", "。"),
+        chinese_script::SIMPLIFIED => ("词汇：", "、", "。"),
+        _ => ("Vocabulary: ", ", ", "."),
+    }
+}
 
+/// Builds a short vocabulary prompt from the user's dictionary so custom terms
+/// are recognized. Returns `None` when the dictionary is empty: descriptive
+/// sentences are avoided because models echo them back on silent audio.
+pub fn build_transcription_prompt(dictionary: &[String], chinese_script: &str) -> Option<String> {
+    let (label, separator, end) = vocabulary_label(chinese_script);
     let mut terms = String::new();
     for word in dictionary {
         let word = word.trim();
@@ -35,20 +39,34 @@ pub fn build_transcription_prompt(dictionary: &[String], chinese_script: &str) -
         } else {
             format!("{separator}{word}")
         };
-        if lead.chars().count() + terms.chars().count() + addition.chars().count() + 8
+        if label.chars().count() + terms.chars().count() + addition.chars().count() + 1
             > MAX_PROMPT_CHARS
         {
             break;
         }
         terms.push_str(&addition);
     }
+    (!terms.is_empty()).then(|| format!("{label}{terms}{end}"))
+}
 
-    match (lead.is_empty(), terms.is_empty()) {
-        (true, true) => None,
-        (false, true) => Some(lead.to_string()),
-        (true, false) => Some(format!("Vocabulary: {terms}{end}")),
-        (false, false) => Some(format!("{lead}常用詞彙：{terms}{end}")),
+fn normalized(text: &str) -> String {
+    text.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+/// True when the transcript is the prompt (or its vocabulary list) repeated back.
+pub fn is_prompt_echo(text: &str, prompt: &str) -> bool {
+    let text = normalized(text);
+    if text.is_empty() {
+        return false;
     }
+    let labels = ["詞彙", "词汇", "vocabulary"];
+    let terms = labels
+        .iter()
+        .fold(normalized(prompt), |acc, label| acc.replacen(label, "", 1));
+    labels.iter().any(|label| text.contains(label)) || (text.chars().count() >= 4 && text == terms)
 }
 
 /// Peak amplitude below which a 16-bit PCM recording is treated as silence
@@ -90,15 +108,14 @@ const KNOWN_HALLUCINATIONS: &[&str] = &[
     "subtitlesbytheamaraorgcommunity",
     "字幕志愿者",
     "中文字幕志愿者",
+    // Prompt sentence sent by WavePen 1.0 pre-release builds.
+    "以下是台灣繁體中文與英文夾雜的口述內容",
+    "以下是台湾繁体中文与英文夹杂的口述内容",
 ];
 
 /// Returns true when the whole transcript is a known silence hallucination.
 pub fn is_known_hallucination(text: &str) -> bool {
-    let normalized: String = text
-        .chars()
-        .filter(|c| c.is_alphanumeric())
-        .flat_map(char::to_lowercase)
-        .collect();
+    let normalized = normalized(text);
     if normalized.is_empty() {
         return false;
     }
@@ -116,29 +133,29 @@ mod tests {
     }
 
     #[test]
-    fn prompt_includes_terms_and_traditional_style() {
-        let prompt = build_transcription_prompt(
-            &[
-                "WavePen".to_string(),
-                "Typeless".to_string(),
-                "潤飾".to_string(),
-            ],
-            "traditional",
-        )
-        .unwrap();
+    fn prompt_lists_dictionary_terms_in_the_reading_script() {
+        let words = [
+            "WavePen".to_string(),
+            "Typeless".to_string(),
+            "潤飾".to_string(),
+        ];
         assert_eq!(
-            prompt,
-            "以下是台灣繁體中文與英文夾雜的口述內容。常用詞彙：WavePen、Typeless、潤飾。"
+            build_transcription_prompt(&words, "traditional").as_deref(),
+            Some("詞彙：WavePen、Typeless、潤飾。")
         );
-    }
-
-    #[test]
-    fn prompt_without_script_lists_vocabulary_only() {
         assert_eq!(
             build_transcription_prompt(&["Kubernetes".to_string()], "preserve").as_deref(),
             Some("Vocabulary: Kubernetes.")
         );
-        assert_eq!(build_transcription_prompt(&[], "preserve"), None);
+    }
+
+    #[test]
+    fn no_prompt_without_dictionary_terms() {
+        assert_eq!(build_transcription_prompt(&[], "traditional"), None);
+        assert_eq!(
+            build_transcription_prompt(&[" ".to_string()], "preserve"),
+            None
+        );
     }
 
     #[test]
@@ -147,6 +164,22 @@ mod tests {
         let prompt = build_transcription_prompt(&words, "traditional").unwrap();
         assert!(prompt.chars().count() <= MAX_PROMPT_CHARS);
         assert!(prompt.ends_with('。'));
+    }
+
+    #[test]
+    fn prompt_echoes_are_detected_but_real_speech_with_terms_is_kept() {
+        let prompt = "詞彙：WavePen、Typeless、潤飾。";
+        assert!(is_prompt_echo("詞彙：WavePen、Typeless、潤飾。", prompt));
+        assert!(is_prompt_echo("WavePen Typeless 潤飾", prompt));
+        assert!(!is_prompt_echo("我用 WavePen 取代 Typeless", prompt));
+        assert!(!is_prompt_echo("潤飾", prompt));
+    }
+
+    #[test]
+    fn legacy_prompt_sentence_is_treated_as_hallucination() {
+        assert!(is_known_hallucination(
+            "以下是台灣繁體中文與英文夾雜的口述內容。"
+        ));
     }
 
     #[test]

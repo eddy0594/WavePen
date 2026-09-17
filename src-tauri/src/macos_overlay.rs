@@ -16,7 +16,6 @@ use std::ffi::c_void;
 use std::sync::OnceLock;
 
 const COLLECTION_CAN_JOIN_ALL_SPACES: usize = 1 << 0;
-const COLLECTION_MOVE_TO_ACTIVE_SPACE: usize = 1 << 1;
 const COLLECTION_STATIONARY: usize = 1 << 4;
 const COLLECTION_IGNORES_CYCLE: usize = 1 << 6;
 const COLLECTION_FULL_SCREEN_AUXILIARY: usize = 1 << 8;
@@ -69,6 +68,29 @@ fn layouts_match(current: &AnyClass, panel: &AnyClass) -> bool {
         && offset(current) == offset(panel)
 }
 
+/// Converts a tao window into a non-activating panel so it can appear over any
+/// Space, including another app's full-screen Space, without switching Spaces
+/// or activating WavePen.
+unsafe fn make_overlay_panel(window: &mut AnyObject) {
+    match overlay_panel_class() {
+        Some(panel) if layouts_match(window.class(), panel) => {
+            if !std::ptr::eq(window.class(), panel) {
+                objc2::ffi::object_setClass(
+                    window as *mut AnyObject as *mut _,
+                    panel as *const AnyClass as *const _,
+                );
+            }
+            let style: usize = msg_send![&*window, styleMask];
+            let _: () = msg_send![&*window, setStyleMask: style | STYLE_NONACTIVATING_PANEL];
+            let _: () = msg_send![&*window, setFloatingPanel: Bool::YES];
+            let _: () = msg_send![&*window, setHidesOnDeactivate: Bool::NO];
+        }
+        _ => {
+            tracing::warn!("Window layout differs from NSPanel; it may hide over full-screen apps")
+        }
+    }
+}
+
 /// Turns the recording capsule into a non-activating HUD panel that follows
 /// the user onto every Space, including full-screen apps.
 ///
@@ -78,24 +100,8 @@ pub unsafe fn configure_capsule_window(ns_window: *mut c_void) {
     let Some(window) = (ns_window as *mut AnyObject).as_mut() else {
         return;
     };
-
-    match overlay_panel_class() {
-        Some(panel) if layouts_match(window.class(), panel) => {
-            objc2::ffi::object_setClass(
-                window as *mut AnyObject as *mut _,
-                panel as *const AnyClass as *const _,
-            );
-            let style: usize = msg_send![&*window, styleMask];
-            let _: () = msg_send![&*window, setStyleMask: style | STYLE_NONACTIVATING_PANEL];
-            let _: () = msg_send![&*window, setFloatingPanel: Bool::YES];
-            let _: () = msg_send![&*window, setHidesOnDeactivate: Bool::NO];
-            let _: () = msg_send![&*window, setBecomesKeyOnlyIfNeeded: Bool::YES];
-        }
-        _ => tracing::warn!(
-            "Capsule window layout differs from NSPanel; it may hide over full-screen apps"
-        ),
-    }
-
+    make_overlay_panel(window);
+    let _: () = msg_send![&*window, setBecomesKeyOnlyIfNeeded: Bool::YES];
     let _: () = msg_send![
         &*window,
         setCollectionBehavior: COLLECTION_CAN_JOIN_ALL_SPACES
@@ -106,18 +112,21 @@ pub unsafe fn configure_capsule_window(ns_window: *mut c_void) {
     let _: () = msg_send![&*window, setLevel: STATUS_WINDOW_LEVEL];
 }
 
-/// Lets the Ask answer window open on the Space the user is currently on,
-/// including another app's full-screen Space, instead of switching Spaces.
+/// Shows the Ask answer window on the Space the user is currently on (including
+/// full-screen apps) and gives it keyboard focus without activating WavePen,
+/// which would otherwise switch back to the desktop Space.
 ///
 /// # Safety
 /// `ns_window` must be a live `NSWindow` pointer and this must run on the main thread.
-pub unsafe fn configure_ask_window(ns_window: *mut c_void) {
-    let Some(window) = (ns_window as *mut AnyObject).as_ref() else {
+pub unsafe fn show_ask_window(ns_window: *mut c_void) {
+    let Some(window) = (ns_window as *mut AnyObject).as_mut() else {
         return;
     };
+    make_overlay_panel(window);
     let _: () = msg_send![
-        window,
-        setCollectionBehavior: COLLECTION_MOVE_TO_ACTIVE_SPACE | COLLECTION_FULL_SCREEN_AUXILIARY
+        &*window,
+        setCollectionBehavior: COLLECTION_CAN_JOIN_ALL_SPACES | COLLECTION_FULL_SCREEN_AUXILIARY
     ];
-    let _: () = msg_send![window, setLevel: STATUS_WINDOW_LEVEL];
+    let _: () = msg_send![&*window, setLevel: STATUS_WINDOW_LEVEL];
+    let _: () = msg_send![&*window, makeKeyAndOrderFront: std::ptr::null::<AnyObject>()];
 }

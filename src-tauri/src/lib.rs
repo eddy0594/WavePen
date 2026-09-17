@@ -316,14 +316,17 @@ pub fn ensure_ask_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Webv
 
 pub fn show_ask_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
     let window = ensure_ask_window(handle)?;
+    let _ = window.unminimize();
     #[cfg(target_os = "macos")]
     if let Ok(ns_window) = window.ns_window() {
         let ns_window = ns_window as usize;
-        let _ = handle.run_on_main_thread(move || unsafe {
-            macos_overlay::configure_ask_window(ns_window as *mut std::ffi::c_void);
+        let shown = handle.run_on_main_thread(move || unsafe {
+            macos_overlay::show_ask_window(ns_window as *mut std::ffi::c_void);
         });
+        if shown.is_ok() {
+            return Ok(window);
+        }
     }
-    let _ = window.unminimize();
     let _ = window.show();
     let _ = window.set_focus();
     Ok(window)

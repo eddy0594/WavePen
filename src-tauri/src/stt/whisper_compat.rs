@@ -198,7 +198,12 @@ impl SttProvider for WhisperCompatProvider {
                             text.len()
                         );
 
-                        if super::transcription_hints::is_known_hallucination(&text) {
+                        let echoed_prompt = config.prompt.as_deref().is_some_and(|prompt| {
+                            super::transcription_hints::is_prompt_echo(&text, prompt)
+                        });
+                        if echoed_prompt
+                            || super::transcription_hints::is_known_hallucination(&text)
+                        {
                             tracing::info!(
                                 "{}: dropped a known silence hallucination",
                                 self.provider_config.provider_name

@@ -1101,6 +1101,11 @@ impl PipelineHandle {
         } else {
             crate::voice_intent::VoiceMode::Dictate
         };
+        tracing::info!(
+            "Pipeline start: mode={:?}, translate_target={}",
+            voice_mode,
+            config_data.translation.active_target
+        );
         *self
             .preloaded_voice_mode
             .lock()
