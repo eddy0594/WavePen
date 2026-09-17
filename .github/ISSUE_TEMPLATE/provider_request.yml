@@ -31,7 +31,7 @@ body:
   - type: textarea
     id: use_case
     attributes:
-      label: Why should OpenTypeless support it?
+      label: Why should WavePen support it?
       description: Tell us the workflow, language, price, latency, privacy, or regional reason this provider matters.
       placeholder: I want this provider because...
     validations:

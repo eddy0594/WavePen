@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenTypeless",
-  "version": "0.1.42",
-  "identifier": "com.opentypeless.app",
+  "productName": "WavePen",
+  "version": "1.0.0",
+  "identifier": "com.wavepen.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "OpenTypeless",
+        "title": "WavePen",
         "width": 900,
         "height": 700,
         "minWidth": 720,
@@ -29,7 +29,7 @@
       },
       {
         "label": "capsule",
-        "title": "OpenTypeless Capsule",
+        "title": "WavePen Capsule",
         "width": 80,
         "height": 80,
         "resizable": false,
@@ -46,7 +46,7 @@
       },
       {
         "label": "ask",
-        "title": "OpenTypeless Ask",
+        "title": "WavePen Ask",
         "width": 400,
         "height": 220,
         "minWidth": 360,
@@ -63,26 +63,23 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.opentypeless.com https://accounts.google.com https://github.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
     }
   },
   "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/tover0314-w/opentypeless/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdBNEFFRjEzN0ZCQTNBMEQKUldRTk9ycC9FKzlLZXVKSFZLNUYxdFZ2Ri9Ya0FRaGsvUEZ1bkJRTDZ6dHZ1emhtZWR6QkprS3kK"
-    },
     "deep-link": {
       "desktop": {
-        "schemes": ["opentypeless"]
+        "schemes": [
+          "wavepen"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "createUpdaterArtifacts": true,
+    "targets": [
+      "app"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -91,9 +88,14 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15",
+      "minimumSystemVersion": "12.0",
       "entitlements": "./Entitlements.plist",
-      "infoPlist": "./Info.plist"
+      "infoPlist": "./Info.plist",
+      "signingIdentity": "-",
+      "files": {
+        "Resources/zh-Hant.lproj/InfoPlist.strings": "./macos/zh-Hant.lproj/InfoPlist.strings",
+        "Resources/en.lproj/InfoPlist.strings": "./macos/en.lproj/InfoPlist.strings"
+      }
     },
     "linux": {
       "appimage": {
@@ -102,5 +104,6 @@
         }
       }
     }
-  }
+  },
+  "mainBinaryName": "WavePen"
 }

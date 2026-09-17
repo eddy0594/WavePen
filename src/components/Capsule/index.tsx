@@ -11,6 +11,8 @@ import { CapsuleProcessing } from './CapsuleProcessing'
 import { CapsulePolishing } from './CapsulePolishing'
 import { CapsuleComplete } from './CapsuleComplete'
 import { CapsuleError } from './CapsuleError'
+import { CapsuleLearned } from './CapsuleLearned'
+import { LEARNED_CAPSULE_WIDTH } from '../../hooks/useCapsuleResize'
 import { CapsuleContextMenu } from './CapsuleContextMenu'
 import { CapsuleAskRecording } from './CapsuleAskRecording'
 import { CapsuleAskThinking } from './CapsuleAskThinking'
@@ -18,8 +20,9 @@ import { TranslateTargetMenu } from './TranslateTargetChip'
 
 const DRAG_THRESHOLD = 5
 
-function getCapsuleState(pipelineState: string, hasError: boolean) {
+function getCapsuleState(pipelineState: string, hasError: boolean, hasNotice: boolean) {
   if (hasError) return 'error'
+  if (hasNotice && pipelineState === 'idle') return 'learned'
   return pipelineState
 }
 
@@ -39,6 +42,8 @@ function getCapsuleShellSize(capsuleState: string) {
     case 'polishing':
     case 'error':
       return { width: 200, height: 36 }
+    case 'learned':
+      return { width: LEARNED_CAPSULE_WIDTH, height: 36 }
     default:
       return { width: 36, height: 36 }
   }
@@ -47,6 +52,7 @@ function getCapsuleShellSize(capsuleState: string) {
 export function Capsule() {
   const pipelineState = useAppStore((s) => s.pipelineState)
   const pipelineError = useAppStore((s) => s.pipelineError)
+  const hasNotice = useAppStore((s) => s.learnedCorrection !== null)
   const contextMenuOpen = useAppStore((s) => s.contextMenuOpen)
   const setContextMenuOpen = useAppStore((s) => s.setContextMenuOpen)
   const contextMenuReady = useAppStore((s) => s.contextMenuReady)
@@ -61,7 +67,7 @@ export function Capsule() {
   useCapsuleResize()
 
   const hasError = pipelineError !== null
-  const capsuleState = getCapsuleState(pipelineState, hasError)
+  const capsuleState = getCapsuleState(pipelineState, hasError, hasNotice)
   const capsuleShellSize = getCapsuleShellSize(capsuleState)
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -170,6 +176,7 @@ export function Capsule() {
             {capsuleState === 'ask_recording' && <CapsuleAskRecording />}
             {capsuleState === 'ask_thinking' && <CapsuleAskThinking />}
             {capsuleState === 'error' && <CapsuleError />}
+            {capsuleState === 'learned' && <CapsuleLearned />}
           </motion.div>
         </AnimatePresence>
       </motion.div>

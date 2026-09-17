@@ -8,11 +8,12 @@ import type {
   AppConfig,
   ContextProfileSummary,
   InsertResult,
+  LearnedCorrection,
   PipelineState,
   RecordingDeadlineSnapshot,
   VoiceMode,
 } from '../stores/appStore'
-import { getHistory } from '../lib/tauri'
+import { getCorrectionRules, getDictionary, getHistory } from '../lib/tauri'
 import { toast } from '../components/toast-service'
 import { capsuleErrorKeyFromPayload, type PipelineErrorPayload } from '../lib/capsuleError'
 import { invalidateCloudSessionOnce } from '../lib/cloud-session'
@@ -91,6 +92,16 @@ export function useTauriEvents() {
     addListener<string>('stt:partial', setPartialTranscript)
     addListener<string>('stt:final', setFinalTranscript)
     addListener<string>('llm:chunk', appendPolishedChunk)
+    addListener<LearnedCorrection>('dictionary:learned', (payload) => {
+      const store = useAppStore.getState()
+      store.setLearnedCorrection(payload)
+      void Promise.all([getDictionary(), getCorrectionRules()])
+        .then(([dictionary, rules]) => {
+          store.setDictionary(dictionary)
+          store.setCorrectionRules(rules)
+        })
+        .catch((error) => console.error('Failed to refresh learned dictionary:', error))
+    })
     addListener<PipelineState>('pipeline:state', (state) => {
       setPipelineState(state)
       if (state === 'preparing' || state === 'recording' || state === 'ask_recording') {

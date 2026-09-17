@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities through [GitHub Security Advisories](https://github.com/tover0314-w/opentypeless/security/advisories/new).
+Please report security vulnerabilities through [GitHub Security Advisories](https://github.com/eddy0594/WavePen/security/advisories/new).
 
 **Do not open a public issue for security vulnerabilities.**
 
@@ -18,7 +18,7 @@ We will acknowledge your report within 72 hours and aim to release a fix within 
 
 ## Security Model
 
-OpenTypeless follows a **Bring Your Own Key (BYOK)** model:
+WavePen follows a **Bring Your Own Key (BYOK)** model:
 
 - All API keys are stored locally on the user's machine via `tauri-plugin-store`
 - No cloud account or server-side storage is required for the core product

@@ -643,3 +643,11 @@ export async function saveOnboardingCompleted(): Promise<void> {
     console.error('Failed to persist onboarding state:', e)
   }
 }
+
+export async function undoLearnedCorrection(
+  pattern: string,
+  replacement: string,
+  removeWord: boolean,
+): Promise<void> {
+  return invoke('undo_learned_correction', { pattern, replacement, removeWord })
+}

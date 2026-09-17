@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest an idea for OpenTypeless
+description: Suggest an idea for WavePen
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
@@ -7,7 +7,7 @@ body:
     id: area
     attributes:
       label: Area
-      description: Which part of OpenTypeless would this improve?
+      description: Which part of WavePen would this improve?
       options:
         - Voice capture / hotkey
         - Speech recognition provider
@@ -27,7 +27,7 @@ body:
     attributes:
       label: Problem or workflow
       description: What are you trying to do, and where does the current experience fall short?
-      placeholder: When I use OpenTypeless for ..., I currently have to ...
+      placeholder: When I use WavePen for ..., I currently have to ...
     validations:
       required: true
   - type: textarea

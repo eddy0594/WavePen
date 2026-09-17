@@ -3,6 +3,7 @@ import i18n from '../../i18n'
 import { invoke } from '@tauri-apps/api/core'
 import { UI_LANGUAGES } from '../../lib/constants'
 import { useAppStore } from '../../stores/appStore'
+import { chineseScriptForUiLanguage } from '../../lib/ui-language'
 
 export function WelcomeStep() {
   const { t } = useTranslation()
@@ -14,7 +15,10 @@ export function WelcomeStep() {
   const handleSelectLanguage = (value: string) => {
     i18n.changeLanguage(value)
     localStorage.setItem('ui_language', value)
-    updateConfig({ ui_language: value })
+    const script = chineseScriptForUiLanguage(value)
+    updateConfig(
+      script ? { ui_language: value, polish_chinese_script: script } : { ui_language: value },
+    )
     invoke('refresh_tray_labels').catch(() => {})
   }
 

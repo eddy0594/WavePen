@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-OpenTypeless includes the following components for managed-cloud Ogg/Opus audio. The Opus codec is built statically into the desktop application; end users do not need to install a system codec. Building the desktop application requires Rust 1.82 or newer and CMake 3.16 or newer.
+WavePen (based on OpenTypeless) includes the following components for Ogg/Opus audio. The Opus codec is built statically into the desktop application; end users do not need to install a system codec. Building the desktop application requires Rust 1.82 or newer and CMake 3.16 or newer.
 
 ## opusic-c 1.6.1
 
@@ -42,3 +42,16 @@ Redistribution and use in source and binary forms, with or without modification,
 - Neither the name of the Xiph.org Foundation nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## ferrous-opencc 0.4.0 and bundled OpenCC dictionaries
+
+WavePen converts transcripts and AI output between Simplified and Traditional (Taiwan) Chinese with ferrous-opencc, a Rust implementation of OpenCC that bundles the OpenCC conversion dictionaries.
+
+- ferrous-opencc: Copyright (c) apoint123. Licensed under the Apache License, Version 2.0.
+- OpenCC dictionaries: Copyright (c) Carbo Kuo (BYVoid) and OpenCC contributors. Licensed under the Apache License, Version 2.0.
+
+You may obtain a copy of the Apache License, Version 2.0 at https://www.apache.org/licenses/LICENSE-2.0. Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
+## opencc-js (development only)
+
+Used by `scripts/generate-zh-tw-locale.mjs` to generate the Traditional Chinese UI strings. Not shipped in the app. Copyright (c) The nk2028 Project. Licensed under MIT AND Apache-2.0 (includes OpenCC dictionaries).

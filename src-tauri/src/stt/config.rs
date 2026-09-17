@@ -33,7 +33,8 @@ pub fn get_whisper_config(provider: &str) -> Option<SttProviderConfig> {
         }),
         "openai-whisper" => Some(SttProviderConfig {
             endpoint: "https://api.openai.com/v1/audio/transcriptions",
-            model: "whisper-1",
+            // Lower error rate than whisper-1 for Mandarin and mixed-language speech, same price.
+            model: "gpt-4o-transcribe",
             extra_fields: &[],
         }),
         "groq-whisper" => Some(SttProviderConfig {
@@ -134,7 +135,7 @@ mod tests {
     fn test_openai_whisper_config() {
         let cfg = get_whisper_config("openai-whisper").unwrap();
         assert!(cfg.endpoint.contains("api.openai.com"));
-        assert_eq!(cfg.model, "whisper-1");
+        assert_eq!(cfg.model, "gpt-4o-transcribe");
         assert!(cfg.extra_fields.is_empty());
     }
 

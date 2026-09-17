@@ -286,6 +286,13 @@ pub async fn update_config(
     }
 
     update_runtime_caches(&cache, &ask_cache, &role_cache, &close_tray_cache, &config);
+    if previous.show_in_dock != config.show_in_dock {
+        crate::apply_dock_visibility(&app, config.show_in_dock);
+        // Changing the activation policy deactivates the app; keep Settings in front.
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.set_focus();
+        }
+    }
     emit_config_patch(&app, &patch);
     if patch.get("ui_language").is_some() || patch.get("capsule_auto_hide").is_some() {
         crate::refresh_tray(&app);

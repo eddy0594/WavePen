@@ -4,6 +4,7 @@ import i18n from '../../i18n'
 import { ExternalLink } from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useAppStore } from '../../stores/appStore'
+import { chineseScriptForUiLanguage } from '../../lib/ui-language'
 import { APP_NAME, APP_VERSION, APP_REPO_URL, UI_LANGUAGES } from '../../lib/constants'
 
 export function AboutPane() {
@@ -16,7 +17,10 @@ export function AboutPane() {
   const handleSelectLanguage = (value: string) => {
     i18n.changeLanguage(value)
     localStorage.setItem('ui_language', value)
-    updateConfig({ ui_language: value })
+    const script = chineseScriptForUiLanguage(value)
+    updateConfig(
+      script ? { ui_language: value, polish_chinese_script: script } : { ui_language: value },
+    )
     invoke('refresh_tray_labels').catch(() => {})
   }
 

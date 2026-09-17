@@ -365,6 +365,10 @@ pub struct AppConfig {
     pub paste_shortcut: String,
     pub windows_sendinput_newline_mode: String,
     pub streaming_insert_enabled: bool,
+    /// Learn correction rules when the user fixes dictated words right after insertion.
+    pub auto_learn_corrections: bool,
+    /// macOS: show the app icon in the Dock (the menu bar icon is always shown).
+    pub show_in_dock: bool,
     pub selected_text_enabled: bool,
     pub theme: String,
     pub auto_start: bool,
@@ -421,7 +425,10 @@ impl Default for AppConfig {
             restore_clipboard_after_paste: true,
             paste_shortcut: "ctrlV".to_string(),
             windows_sendinput_newline_mode: "enter".to_string(),
-            streaming_insert_enabled: false,
+            // WavePen: type polished text as it arrives so output starts sooner.
+            streaming_insert_enabled: true,
+            auto_learn_corrections: true,
+            show_in_dock: true,
             selected_text_enabled: false,
             theme: "system".to_string(),
             auto_start: true,
@@ -442,8 +449,14 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn new_install_default() -> Self {
+        // WavePen: one OpenAI key covers both speech recognition and polish,
+        // which keeps first-run setup simple for non-technical users.
         Self {
             capsule_auto_hide: true,
+            stt_provider: "openai-whisper".to_string(),
+            llm_provider: "openai".to_string(),
+            llm_model: "gpt-4o-mini".to_string(),
+            llm_base_url: "https://api.openai.com/v1".to_string(),
             ..Self::default()
         }
     }
@@ -567,7 +580,8 @@ impl AppConfig {
         }
         self.polish_style = normalize_polish_style(&self.polish_style).to_string();
         self.polish_custom_prompt = sanitize_polish_custom_prompt(&self.polish_custom_prompt);
-        self.polish_chinese_script = "preserve".to_string();
+        self.polish_chinese_script =
+            crate::chinese_script::normalize(&self.polish_chinese_script).to_string();
         sanitize_custom_scenes(&mut self.custom_scenes);
         sanitize_system_scene_overrides(&mut self.system_scene_overrides);
         sanitize_active_scene(&mut self.active_scene);
@@ -731,14 +745,8 @@ fn default_dictation_hotkey() -> &'static str {
 }
 
 fn default_dictation_hotkey_mode() -> &'static str {
-    #[cfg(target_os = "macos")]
-    {
-        "toggle"
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        "hold"
-    }
+    // WavePen matches Typeless: hold Fn to talk, release to insert.
+    "hold"
 }
 
 fn default_ask_hotkey() -> &'static str {
@@ -2422,7 +2430,7 @@ mod tests {
     }
 
     #[test]
-    fn app_config_defaults_streaming_insert_to_disabled() {
+    fn app_config_defaults_streaming_insert_to_enabled() {
         let value = serde_json::json!({
             "stt_provider": "glm-asr",
             "llm_provider": "openrouter"
@@ -2430,7 +2438,7 @@ mod tests {
 
         let config = AppConfig::from_stored_value(value).unwrap();
 
-        assert!(!config.streaming_insert_enabled);
+        assert!(config.streaming_insert_enabled);
     }
 
     #[test]
@@ -3000,7 +3008,7 @@ mod tests {
     }
 
     #[test]
-    fn app_config_sanitizes_custom_polish_prompt_and_clears_chinese_script() {
+    fn app_config_sanitizes_custom_polish_prompt_and_keeps_chinese_script() {
         let mut value = serde_json::to_value(AppConfig::default()).unwrap();
         value["polish_custom_prompt"] = serde_json::json!("  use formal tone\0  ");
         value["polish_chinese_script"] = serde_json::json!("traditional");
@@ -3008,6 +3016,16 @@ mod tests {
         let config = AppConfig::from_stored_value(value).unwrap();
 
         assert_eq!(config.polish_custom_prompt, "use formal tone");
+        assert_eq!(config.polish_chinese_script, "traditional");
+    }
+
+    #[test]
+    fn app_config_resets_unknown_chinese_script() {
+        let mut value = serde_json::to_value(AppConfig::default()).unwrap();
+        value["polish_chinese_script"] = serde_json::json!("klingon");
+
+        let config = AppConfig::from_stored_value(value).unwrap();
+
         assert_eq!(config.polish_chinese_script, "preserve");
     }
 
@@ -3020,13 +3038,13 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
-    fn app_config_new_install_uses_fn_toggle_on_macos() {
+    fn app_config_new_install_uses_fn_hold_on_macos() {
         let config = AppConfig::new_install_default();
         assert_eq!(config.hotkey, "Fn");
         assert_eq!(config.hotkeys.dictation.primary, "Fn");
         assert_eq!(config.hotkeys.dictation.modifiers, Vec::<String>::new());
-        assert_eq!(config.hotkey_mode, "toggle");
-        assert_eq!(config.hotkeys.dictation_mode, "toggle");
+        assert_eq!(config.hotkey_mode, "hold");
+        assert_eq!(config.hotkeys.dictation_mode, "hold");
         assert_eq!(config.ask_hotkey, "Fn+Space");
         assert_eq!(
             config
@@ -3158,7 +3176,8 @@ mod tests {
     #[test]
     fn app_config_migrates_legacy_mac_alt_slash_label() {
         let value = serde_json::json!({
-            "hotkey": "Alt+/"
+            "hotkey": "Alt+/",
+            "hotkey_mode": "toggle"
         });
 
         let config = AppConfig::from_stored_value(value).unwrap();

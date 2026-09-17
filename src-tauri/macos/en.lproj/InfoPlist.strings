@@ -1,0 +1,5 @@
+CFBundleDisplayName = "WavePen";
+CFBundleName = "WavePen";
+NSMicrophoneUsageDescription = "WavePen needs microphone access to turn your voice into text.";
+NSSpeechRecognitionUsageDescription = "WavePen uses Apple Speech to transcribe your voice when you choose the Apple Speech provider.";
+NSAppleEventsUsageDescription = "WavePen needs automation access to detect the active app so it can adapt the tone and format of your text.";

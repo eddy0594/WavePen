@@ -56,3 +56,7 @@ docs/superpowers/
 
 # Local isolated worktrees
 .worktrees/
+dist-release/
+
+# Local Claude Code session files
+.claude/

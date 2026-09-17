@@ -144,13 +144,13 @@ impl NativeMonitoredBinding {
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows", test))]
-fn monitored_bindings_for_base(
+fn monitored_bindings_for_bases(
     bindings: Vec<NativeHotkeyBinding>,
-    base: NativeHotkeyTrigger,
+    bases: &[NativeHotkeyTrigger],
 ) -> Vec<NativeMonitoredBinding> {
     bindings
         .into_iter()
-        .filter(|binding| binding.trigger.base() == base)
+        .filter(|binding| bases.contains(&binding.trigger.base()))
         .map(NativeMonitoredBinding::new)
         .collect()
 }
@@ -275,7 +275,7 @@ fn dispatch_native_combo_edge(
 #[cfg(target_os = "macos")]
 mod platform {
     use super::{
-        dispatch_native_base_edge, dispatch_native_combo_edge, monitored_bindings_for_base,
+        dispatch_native_base_edge, dispatch_native_combo_edge, monitored_bindings_for_bases,
         NativeComboKey, NativeComboState, NativeHotkeyHandler, NativeHotkeyTrigger,
         NativeMonitoredBinding,
     };
@@ -326,7 +326,10 @@ mod platform {
     const KEYBOARD_EVENT_KEYCODE: CgEventField = 9;
     const FLAG_MASK_SECONDARY_FN: CgEventFlags = 0x0080_0000;
     const FLAG_MASK_SHIFT: CgEventFlags = 0x0002_0000;
+    /// `NX_DEVICERALTKEYMASK`: device-dependent bit for the right Option key.
+    const FLAG_MASK_DEVICE_RIGHT_OPTION: CgEventFlags = 0x0000_0040;
     const FN_KEYCODE: i64 = 63;
+    const RIGHT_OPTION_KEYCODE: i64 = 61;
     const SPACE_KEYCODE: i64 = 49;
     const LEFT_SHIFT_KEYCODE: i64 = 56;
 
@@ -410,9 +413,14 @@ mod platform {
             bindings: Vec<super::NativeHotkeyBinding>,
             handler: NativeHotkeyHandler,
         ) -> Result<Self, String> {
-            let bindings = monitored_bindings_for_base(bindings, NativeHotkeyTrigger::Fn);
+            let bindings = monitored_bindings_for_bases(
+                bindings,
+                &[NativeHotkeyTrigger::Fn, NativeHotkeyTrigger::RightAlt],
+            );
             if bindings.is_empty() {
-                return Err("macOS native hotkeys currently support Fn only".to_string());
+                return Err(
+                    "macOS native hotkeys currently support Fn and Right Option only".to_string(),
+                );
             }
 
             let handles = Arc::new(MacShutdownHandles::new());
@@ -459,7 +467,51 @@ mod platform {
         bindings: Vec<NativeMonitoredBinding>,
         handler: NativeHotkeyHandler,
         handles: Arc<MacShutdownHandles>,
-        state: Mutex<NativeComboState>,
+        fn_state: Mutex<NativeComboState>,
+        right_option_state: Mutex<NativeComboState>,
+    }
+
+    impl CallbackContext {
+        fn state_for(&self, base: NativeHotkeyTrigger) -> &Mutex<NativeComboState> {
+            match base {
+                NativeHotkeyTrigger::RightAlt => &self.right_option_state,
+                _ => &self.fn_state,
+            }
+        }
+
+        fn dispatch_base(&self, base: NativeHotkeyTrigger, pressed: bool) {
+            let mut state = self
+                .state_for(base)
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            let _ =
+                dispatch_native_base_edge(&mut state, &self.bindings, base, pressed, &self.handler);
+        }
+
+        /// Returns true when a bound combo consumed the key.
+        fn dispatch_combo(&self, combo: NativeComboKey, pressed: bool) -> (bool, bool) {
+            let mut consumed_by_fn = false;
+            let mut consumed_by_right_option = false;
+            for base in [NativeHotkeyTrigger::Fn, NativeHotkeyTrigger::RightAlt] {
+                let mut state = self
+                    .state_for(base)
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                let matched = dispatch_native_combo_edge(
+                    &mut state,
+                    &self.bindings,
+                    base,
+                    combo,
+                    pressed,
+                    &self.handler,
+                );
+                match base {
+                    NativeHotkeyTrigger::RightAlt => consumed_by_right_option |= matched,
+                    _ => consumed_by_fn |= matched,
+                }
+            }
+            (consumed_by_fn, consumed_by_right_option)
+        }
     }
 
     fn run_event_tap_loop(
@@ -472,7 +524,8 @@ mod platform {
             bindings,
             handler,
             handles: Arc::clone(&handles),
-            state: Mutex::new(NativeComboState::default()),
+            fn_state: Mutex::new(NativeComboState::default()),
+            right_option_state: Mutex::new(NativeComboState::default()),
         }));
         let mask: CgEventMask = (1u64 << FLAGS_CHANGED) | (1u64 << KEY_DOWN) | (1u64 << KEY_UP);
 
@@ -568,8 +621,11 @@ mod platform {
                 }
             }
             FLAGS_CHANGED => handle_flags_changed(context, event),
-            KEY_DOWN => handle_key_event(context, event, true),
-            KEY_UP => handle_key_event(context, event, false),
+            // Swallow a consumed Right Option+Space so the app does not receive a
+            // non-breaking space.
+            KEY_DOWN | KEY_UP if handle_key_event(context, event, event_type == KEY_DOWN) => {
+                return std::ptr::null_mut();
+            }
             _ => {}
         }
 
@@ -579,54 +635,38 @@ mod platform {
     fn handle_flags_changed(context: &CallbackContext, event: CgEventRef) {
         let keycode = unsafe { CGEventGetIntegerValueField(event, KEYBOARD_EVENT_KEYCODE) };
         let flags = unsafe { CGEventGetFlags(event) };
-        if keycode == FN_KEYCODE {
-            let pressed = (flags & FLAG_MASK_SECONDARY_FN) != 0;
-            let mut state = context.state.lock().unwrap_or_else(|e| e.into_inner());
-            let _ = dispatch_native_base_edge(
-                &mut state,
-                &context.bindings,
+        match keycode {
+            FN_KEYCODE => context.dispatch_base(
                 NativeHotkeyTrigger::Fn,
-                pressed,
-                &context.handler,
-            );
-            return;
-        }
-
-        if keycode == LEFT_SHIFT_KEYCODE {
-            let pressed = (flags & FLAG_MASK_SHIFT) != 0;
-            let mut state = context.state.lock().unwrap_or_else(|e| e.into_inner());
-            let _ = dispatch_native_combo_edge(
-                &mut state,
-                &context.bindings,
-                NativeHotkeyTrigger::Fn,
-                NativeComboKey::LeftShift,
-                pressed,
-                &context.handler,
-            );
+                (flags & FLAG_MASK_SECONDARY_FN) != 0,
+            ),
+            RIGHT_OPTION_KEYCODE => context.dispatch_base(
+                NativeHotkeyTrigger::RightAlt,
+                (flags & FLAG_MASK_DEVICE_RIGHT_OPTION) != 0,
+            ),
+            LEFT_SHIFT_KEYCODE => {
+                let _ = context
+                    .dispatch_combo(NativeComboKey::LeftShift, (flags & FLAG_MASK_SHIFT) != 0);
+            }
+            _ => {}
         }
     }
 
-    fn handle_key_event(context: &CallbackContext, event: CgEventRef, pressed: bool) {
+    /// Returns true when the key event should be swallowed.
+    fn handle_key_event(context: &CallbackContext, event: CgEventRef, pressed: bool) -> bool {
         let keycode = unsafe { CGEventGetIntegerValueField(event, KEYBOARD_EVENT_KEYCODE) };
         if keycode != SPACE_KEYCODE {
-            return;
+            return false;
         }
-        let mut state = context.state.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = dispatch_native_combo_edge(
-            &mut state,
-            &context.bindings,
-            NativeHotkeyTrigger::Fn,
-            NativeComboKey::Space,
-            pressed,
-            &context.handler,
-        );
+        let (_, consumed_by_right_option) = context.dispatch_combo(NativeComboKey::Space, pressed);
+        consumed_by_right_option
     }
 }
 
 #[cfg(target_os = "windows")]
 mod platform {
     use super::{
-        dispatch_native_base_edge, dispatch_native_combo_edge, monitored_bindings_for_base,
+        dispatch_native_base_edge, dispatch_native_combo_edge, monitored_bindings_for_bases,
         NativeComboKey, NativeComboState, NativeHotkeyHandler, NativeHotkeyTrigger,
         NativeMonitoredBinding,
     };
@@ -699,7 +739,7 @@ mod platform {
             bindings: Vec<super::NativeHotkeyBinding>,
             handler: NativeHotkeyHandler,
         ) -> Result<Self, String> {
-            let bindings = monitored_bindings_for_base(bindings, NativeHotkeyTrigger::RightAlt);
+            let bindings = monitored_bindings_for_bases(bindings, &[NativeHotkeyTrigger::RightAlt]);
             if bindings.is_empty() {
                 return Err("Windows native hotkeys currently support RightAlt only".to_string());
             }
@@ -989,6 +1029,68 @@ mod tests {
         let handler: Arc<dyn Fn(NativeHotkeyEvent) + Send + Sync> = Arc::new(|_| {});
 
         assert!(runtime.install(Vec::new(), handler).is_ok());
+    }
+
+    #[test]
+    fn monitored_bindings_keep_fn_and_right_option_on_macos() {
+        let binding = |trigger| NativeHotkeyBinding {
+            role: crate::hotkey::HotkeyRole::Dictation,
+            index: 0,
+            trigger,
+        };
+        let monitored = monitored_bindings_for_bases(
+            vec![
+                binding(NativeHotkeyTrigger::Fn),
+                binding(NativeHotkeyTrigger::RightAlt),
+                binding(NativeHotkeyTrigger::RightAltSpace),
+            ],
+            &[NativeHotkeyTrigger::Fn, NativeHotkeyTrigger::RightAlt],
+        );
+        assert_eq!(monitored.len(), 3);
+
+        let windows_only = monitored_bindings_for_bases(
+            vec![binding(NativeHotkeyTrigger::Fn)],
+            &[NativeHotkeyTrigger::RightAlt],
+        );
+        assert!(windows_only.is_empty());
+    }
+
+    #[test]
+    fn right_option_base_dispatches_press_and_release() {
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&events);
+        let handler: NativeHotkeyHandler = Arc::new(move |event| {
+            recorded.lock().unwrap().push(event.state);
+        });
+        let bindings = monitored_bindings_for_bases(
+            vec![NativeHotkeyBinding {
+                role: crate::hotkey::HotkeyRole::Dictation,
+                index: 0,
+                trigger: NativeHotkeyTrigger::RightAlt,
+            }],
+            &[NativeHotkeyTrigger::Fn, NativeHotkeyTrigger::RightAlt],
+        );
+        let mut state = NativeComboState::default();
+
+        dispatch_native_base_edge(
+            &mut state,
+            &bindings,
+            NativeHotkeyTrigger::RightAlt,
+            true,
+            &handler,
+        );
+        dispatch_native_base_edge(
+            &mut state,
+            &bindings,
+            NativeHotkeyTrigger::RightAlt,
+            false,
+            &handler,
+        );
+
+        assert_eq!(
+            *events.lock().unwrap(),
+            vec![ShortcutState::Pressed, ShortcutState::Released]
+        );
     }
 
     #[test]

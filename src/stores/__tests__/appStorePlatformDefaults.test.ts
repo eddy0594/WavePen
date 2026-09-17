@@ -27,7 +27,7 @@ describe('appStore platform default shortcuts', () => {
 
     expect(config.hotkey).toBe('Fn')
     expect(config.ask_hotkey).toBe('Fn+Space')
-    expect(config.hotkey_mode).toBe('toggle')
+    expect(config.hotkey_mode).toBe('hold')
     expect(config.hotkeys.dictation).toEqual({ primary: 'Fn', modifiers: [] })
     expect(config.hotkeys.ask).toEqual({ primary: 'Space', modifiers: ['Fn'] })
     expect(config.hotkeys.translate).toEqual({ primary: 'LeftShift', modifiers: ['Fn'] })

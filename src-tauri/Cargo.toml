@@ -1,8 +1,8 @@
 [package]
 name = "opentypeless"
-version = "0.1.42"
+version = "1.0.0"
 description = "AI-powered speech-to-text and text polishing desktop app"
-authors = ["OpenTypeless Contributors"]
+authors = ["eddy0594", "OpenTypeless Contributors"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.82"
@@ -46,11 +46,11 @@ http = "1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 csv = "1.3"
 unicode-normalization = "0.1"
+ferrous-opencc = "0.4"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = "0.4"
 url = "2"
 flate2 = "1"
-tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]

@@ -411,6 +411,9 @@ pub fn native_trigger_supported_on_platform(trigger: NativeHotkeyTrigger, platfo
             NativeHotkeyTrigger::Fn
                 | NativeHotkeyTrigger::FnSpace
                 | NativeHotkeyTrigger::FnLeftShift
+                | NativeHotkeyTrigger::RightAlt
+                | NativeHotkeyTrigger::RightAltSpace
+                | NativeHotkeyTrigger::RightAltLeftShift
         ),
         "windows" => matches!(
             trigger,
@@ -1469,8 +1472,12 @@ mod tests {
             NativeHotkeyTrigger::FnSpace,
             "macos"
         ));
-        assert!(!native_trigger_supported_on_platform(
+        assert!(native_trigger_supported_on_platform(
             NativeHotkeyTrigger::RightAlt,
+            "macos"
+        ));
+        assert!(native_trigger_supported_on_platform(
+            NativeHotkeyTrigger::RightAltSpace,
             "macos"
         ));
         assert!(native_trigger_supported_on_platform(

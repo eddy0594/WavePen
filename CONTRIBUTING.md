@@ -1,4 +1,4 @@
-# Contributing to OpenTypeless
+# Contributing to WavePen
 
 Thanks for your interest in contributing! This guide covers everything you need to get started.
 
@@ -13,8 +13,8 @@ Thanks for your interest in contributing! This guide covers everything you need 
 | Type | Process |
 |------|---------|
 | Bug fix / small improvement | Open a PR directly |
-| New feature / architecture change | Start a [Discussion](https://github.com/tover0314-w/opentypeless/discussions/categories/ideas) first |
-| Question / help | Post in [Q&A Discussions](https://github.com/tover0314-w/opentypeless/discussions/categories/q-a) |
+| New feature / architecture change | Start a [issue](https://github.com/eddy0594/WavePen/issues) first |
+| Question / help | Post in [issue](https://github.com/eddy0594/WavePen/issues) |
 
 ## Making Changes
 

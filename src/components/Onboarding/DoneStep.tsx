@@ -9,6 +9,7 @@ import {
   LayoutGrid,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
+import { formatHotkeyForPlatform } from '../../lib/hotkey-display'
 
 export function DoneStep() {
   const { t } = useTranslation()
@@ -47,13 +48,13 @@ export function DoneStep() {
       <div className="w-full space-y-2">
         <Tip
           icon={Keyboard}
-          title={`${dictationAction} ${config.hotkey}`}
+          title={`${dictationAction} ${formatHotkeyForPlatform(config.hotkey, t)}`}
           desc={t('onboarding.done.holdPressSub')}
         />
         {config.ask_hotkey && (
           <Tip
             icon={MessageCircleQuestion}
-            title={`${t('onboarding.done.askAnything')} ${config.ask_hotkey}`}
+            title={`${t('onboarding.done.askAnything')} ${formatHotkeyForPlatform(config.ask_hotkey, t)}`}
             desc={t('onboarding.done.askAnythingSub')}
           />
         )}

@@ -1,0 +1,5 @@
+CFBundleDisplayName = "說寫";
+CFBundleName = "說寫";
+NSMicrophoneUsageDescription = "說寫需要使用麥克風，才能把你說的話轉成文字。";
+NSSpeechRecognitionUsageDescription = "當你選擇 Apple 語音辨識時，說寫會使用它來轉錄你的語音。";
+NSAppleEventsUsageDescription = "說寫需要自動化權限來判斷目前使用中的 App，以調整輸出文字的語氣與格式。";

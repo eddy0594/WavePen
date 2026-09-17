@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore, type PipelineState } from '../stores/appStore'
 
+export const LEARNED_CAPSULE_WIDTH = 280
+
 interface CapsuleSize {
   width: number
   height: number
@@ -12,6 +14,7 @@ export interface CapsuleVisibilityInput {
   translationTargetMenuOpen?: boolean
   capsuleExpanded: boolean
   hasError: boolean
+  hasNotice?: boolean
   pipelineState: PipelineState
 }
 
@@ -21,10 +24,12 @@ export function getCapsuleVisibility({
   translationTargetMenuOpen = false,
   capsuleExpanded,
   hasError,
+  hasNotice = false,
   pipelineState,
 }: CapsuleVisibilityInput): boolean {
   return (
     !capsuleAutoHide ||
+    hasNotice ||
     contextMenuOpen ||
     translationTargetMenuOpen ||
     capsuleExpanded ||
@@ -43,10 +48,12 @@ function getSizeForState(
   hasError: boolean,
   contextMenuOpen: boolean,
   translationTargetMenuOpen = false,
+  hasNotice = false,
 ): CapsuleSize {
   if (translationTargetMenuOpen) return { width: 360, height: 180 }
   if (contextMenuOpen) return { width: 220, height: 220 }
   if (hasError) return { width: 200, height: 36 }
+  if (hasNotice && state === 'idle') return { width: LEARNED_CAPSULE_WIDTH, height: 36 }
   if (expanded) return { width: 220, height: 90 }
   switch (state) {
     case 'idle':
@@ -75,6 +82,7 @@ export function useCapsuleResize() {
   const translationTargetMenuOpen = useAppStore((s) => s.translationTargetMenuOpen)
   const setContextMenuReady = useAppStore((s) => s.setContextMenuReady)
   const capsuleAutoHide = useAppStore((s) => s.config.capsule_auto_hide)
+  const hasNotice = useAppStore((s) => s.learnedCorrection !== null)
   const initialized = useRef(false)
   const prevWindowSize = useRef<{ width: number; height: number } | null>(null)
 
@@ -87,6 +95,7 @@ export function useCapsuleResize() {
       hasError,
       contextMenuOpen,
       translationTargetMenuOpen,
+      hasNotice,
     )
     const windowWidth = size.width + 24
     const windowHeight = size.height + 24
@@ -96,6 +105,7 @@ export function useCapsuleResize() {
       translationTargetMenuOpen,
       capsuleExpanded,
       hasError,
+      hasNotice,
       pipelineState,
     })
 
@@ -172,6 +182,7 @@ export function useCapsuleResize() {
     contextMenuOpen,
     translationTargetMenuOpen,
     capsuleAutoHide,
+    hasNotice,
     setContextMenuReady,
   ])
 
@@ -181,5 +192,6 @@ export function useCapsuleResize() {
     hasError,
     contextMenuOpen,
     translationTargetMenuOpen,
+    hasNotice,
   )
 }

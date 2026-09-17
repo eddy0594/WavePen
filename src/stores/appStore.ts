@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { chineseScriptForUiLanguage, systemUiLanguage } from '../lib/ui-language'
 import { TARGET_LANGUAGES } from '../lib/constants'
 
 export type PipelineState =
@@ -52,6 +53,12 @@ export type InsertionStrategy =
   | 'windowsSendInput'
 export type InsertStatus = 'inserted' | 'copiedFallback' | 'failed' | 'partiallyInserted'
 export type HotkeyMode = 'hold' | 'toggle'
+
+export interface LearnedCorrection {
+  pattern: string
+  replacement: string
+  addedWord: boolean
+}
 export type Theme = 'light' | 'dark' | 'system'
 export type PolishChineseScript = 'preserve' | 'simplified' | 'traditional'
 export type PolishStyle = 'minimal' | 'clean' | 'structured' | 'professional'
@@ -225,6 +232,8 @@ export interface AppConfig {
   paste_shortcut: PasteShortcut
   windows_sendinput_newline_mode: WindowsSendInputNewlineMode
   streaming_insert_enabled: boolean
+  auto_learn_corrections: boolean
+  show_in_dock: boolean
   selected_text_enabled: boolean
   theme: Theme
   auto_start: boolean
@@ -327,6 +336,10 @@ interface AppState {
   pipelineError: string | null
   setPipelineError: (error: string | null) => void
 
+  // Correction learned from an edit right after dictation (shown in the capsule)
+  learnedCorrection: LearnedCorrection | null
+  setLearnedCorrection: (correction: LearnedCorrection | null) => void
+
   // macOS Accessibility permission
   accessibilityTrusted: boolean
   setAccessibilityTrusted: (trusted: boolean) => void
@@ -364,7 +377,8 @@ function defaultDictationHotkey(): string {
 }
 
 function defaultDictationHotkeyMode(): HotkeyMode {
-  return isMacPlatform() ? 'toggle' : 'hold'
+  // WavePen matches Typeless: hold the dictation key to talk, release to insert.
+  return 'hold'
 }
 
 function defaultAskHotkey(): string {
@@ -721,7 +735,7 @@ function syncHotkeyConfig(previous: AppConfig, partial: Partial<AppConfig>): App
 }
 
 const defaultConfig: AppConfig = {
-  stt_provider: 'glm-asr',
+  stt_provider: 'openai-whisper',
   stt_api_key: '',
   stt_custom_api_key: '',
   stt_custom_preset: 'speaches',
@@ -730,10 +744,10 @@ const defaultConfig: AppConfig = {
   stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   stt_aliyun_qwen_region: 'china-mainland',
   stt_language: 'multi',
-  llm_provider: 'openrouter',
+  llm_provider: 'openai',
   llm_api_key: '',
-  llm_model: 'google/gemini-2.5-flash',
-  llm_base_url: 'https://openrouter.ai/api/v1',
+  llm_model: 'gpt-4o-mini',
+  llm_base_url: 'https://api.openai.com/v1',
   polish_enabled: true,
   context_adaptation_enabled: true,
   voice_routing_flags: {
@@ -744,7 +758,7 @@ const defaultConfig: AppConfig = {
   },
   polish_style: 'clean',
   polish_custom_prompt: '',
-  polish_chinese_script: 'preserve',
+  polish_chinese_script: chineseScriptForUiLanguage(systemUiLanguage()) ?? 'preserve',
   custom_scenes: [],
   system_scene_overrides: [],
   active_scene: null,
@@ -774,7 +788,9 @@ const defaultConfig: AppConfig = {
   restore_clipboard_after_paste: true,
   paste_shortcut: 'ctrlV',
   windows_sendinput_newline_mode: 'enter',
-  streaming_insert_enabled: false,
+  streaming_insert_enabled: true,
+  auto_learn_corrections: true,
+  show_in_dock: true,
   selected_text_enabled: false,
   theme: 'system',
   auto_start: true,
@@ -786,7 +802,7 @@ const defaultConfig: AppConfig = {
   history_enabled: true,
   history_retention_days: 0,
   history_max_entries: 5000,
-  ui_language: 'en',
+  ui_language: systemUiLanguage(),
   capsule_auto_hide: true,
 }
 
@@ -858,6 +874,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   pipelineError: null,
   setPipelineError: (pipelineError) => set({ pipelineError }),
+  learnedCorrection: null,
+  setLearnedCorrection: (learnedCorrection) => set({ learnedCorrection }),
 
   accessibilityTrusted: true,
   setAccessibilityTrusted: (accessibilityTrusted) => set({ accessibilityTrusted }),

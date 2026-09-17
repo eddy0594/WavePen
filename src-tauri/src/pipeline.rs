@@ -716,6 +716,8 @@ pub struct PipelineHandle {
     cloud_operation_id: Arc<Mutex<Option<String>>>,
     recording_start: Arc<Mutex<Option<std::time::Instant>>>,
     active_translation_operation: Arc<Mutex<Option<TranslationOperationState>>>,
+    /// Set when the latest dictation was typed into the target app, so edits can be learned.
+    last_output_inserted: Arc<AtomicBool>,
     shared_client: reqwest::Client,
     /// Serializes start()/stop() so that stop() waits for start() to finish
     /// its setup before reading shared state (preloaded_config, audio_handle, etc.).
@@ -926,6 +928,7 @@ impl PipelineHandle {
             cloud_operation_id: Arc::new(Mutex::new(None)),
             recording_start: Arc::new(Mutex::new(None)),
             active_translation_operation: Arc::new(Mutex::new(None)),
+            last_output_inserted: Arc::new(AtomicBool::new(false)),
             shared_client,
             pipeline_lock: Arc::new(tokio::sync::Mutex::new(())),
         }
@@ -948,13 +951,13 @@ impl PipelineHandle {
         // Update tray tooltip + menu to reflect pipeline state
         if let Some(tray_handle) = self.app_handle.try_state::<crate::TrayHandle>() {
             let tooltip = match new_state {
-                PipelineState::Preparing => "OpenTypeless - Preparing...",
-                PipelineState::Recording => "OpenTypeless - Recording...",
-                PipelineState::Transcribing => "OpenTypeless - Transcribing...",
-                PipelineState::Polishing => "OpenTypeless - Polishing...",
-                PipelineState::Outputting => "OpenTypeless - Outputting...",
-                PipelineState::AskRecording => "OpenTypeless - Ask...",
-                PipelineState::AskThinking => "OpenTypeless - Answering...",
+                PipelineState::Preparing => "WavePen - Preparing...",
+                PipelineState::Recording => "WavePen - Recording...",
+                PipelineState::Transcribing => "WavePen - Transcribing...",
+                PipelineState::Polishing => "WavePen - Polishing...",
+                PipelineState::Outputting => "WavePen - Outputting...",
+                PipelineState::AskRecording => "WavePen - Ask...",
+                PipelineState::AskThinking => "WavePen - Answering...",
                 PipelineState::Idle => "OpenTypeless",
             };
             if let Ok(t) = tray_handle.tray.lock() {
@@ -1271,6 +1274,20 @@ impl PipelineHandle {
             provider_region: (config_data.stt_provider
                 == stt::aliyun_qwen3_asr::ALIYUN_QWEN3_ASR_PROVIDER)
                 .then(|| config_data.stt_aliyun_qwen_region.clone()),
+            prompt: stt::transcription_hints::provider_supports_prompt(&config_data.stt_provider)
+                .then(|| {
+                    let dictionary = self
+                        .preloaded_dictionary
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .clone()
+                        .unwrap_or_default();
+                    stt::transcription_hints::build_transcription_prompt(
+                        &dictionary,
+                        &config_data.polish_chinese_script,
+                    )
+                })
+                .flatten(),
         };
         let managed_cloud_session_token =
             (config_data.stt_provider == "cloud").then(|| stt_config.api_key.clone());
@@ -1780,7 +1797,7 @@ impl PipelineHandle {
         // Update tray for transcribing state
         if let Some(tray_handle) = self.app_handle.try_state::<crate::TrayHandle>() {
             if let Ok(t) = tray_handle.tray.lock() {
-                let _ = t.set_tooltip(Some("OpenTypeless - Transcribing..."));
+                let _ = t.set_tooltip(Some("WavePen - Transcribing..."));
             }
         }
         crate::refresh_tray(&self.app_handle);
@@ -1897,7 +1914,15 @@ impl PipelineHandle {
 
         // ── Phase 1: Wait for STT ──────────────────────────────────────
         let raw_text = match self.wait_for_stt(stt_control.clone()).await? {
-            Some(text) => text,
+            Some(text) if stt::transcription_hints::is_known_hallucination(&text) => {
+                tracing::info!("Dropped a known silence hallucination from STT");
+                if let Some(control) = &stt_control {
+                    self.clear_stt_session(control.id);
+                }
+                self.set_state(PipelineState::Idle);
+                return Ok(());
+            }
+            Some(text) => crate::chinese_script::convert(&text, &config.polish_chinese_script),
             None => {
                 if let Some(control) = &stt_control {
                     self.clear_stt_session(control.id);
@@ -1907,6 +1932,10 @@ impl PipelineHandle {
         };
         let voice_intent =
             route_pipeline_voice_intent(voice_mode, &raw_text, selected_text.as_deref(), &config);
+        let learn_from_edits = config.auto_learn_corrections
+            && selected_text.is_none()
+            && voice_mode == crate::voice_intent::VoiceMode::Dictate;
+        self.last_output_inserted.store(false, Ordering::SeqCst);
         let stt_elapsed = stop_start.elapsed();
         tracing::info!(
             "[Pipeline Timing] STT finalize: {}ms",
@@ -1940,6 +1969,16 @@ impl PipelineHandle {
             .await;
         let final_text = polish_outcome.final_text;
         let llm_elapsed = polish_outcome.llm_elapsed;
+        if learn_from_edits
+            && self.last_output_inserted.load(Ordering::SeqCst)
+            && !final_text.trim().is_empty()
+            && is_accessibility_trusted()
+        {
+            crate::correction_learning::watch_inserted_text(
+                self.app_handle.clone(),
+                final_text.clone(),
+            );
+        }
 
         // ── Phase 3: Timing, history, cleanup ──────────────────────────
         let total_elapsed = stop_start.elapsed();
@@ -2182,14 +2221,31 @@ impl PipelineHandle {
         let streaming_sender = streaming_worker
             .as_ref()
             .map(|worker| worker.sender.clone());
+        let flush_sender = streaming_sender.clone();
+        let script_converter = Arc::new(Mutex::new(
+            crate::chinese_script::StreamingConverter::new(&config.polish_chinese_script),
+        ));
+        let emit_converted = {
+            let app_handle = self.app_handle.clone();
+            move |text: String, sender: Option<&mpsc::UnboundedSender<String>>| {
+                let _ = app_handle.emit("llm:chunk", text.as_str());
+                if let Some(sender) = sender {
+                    let _ = sender.send(text);
+                }
+            }
+        };
 
         // The callback remains synchronous for the LLM stream. UI updates happen
         // immediately; optional target-app insertion is drained by a worker.
-        let app_handle = self.app_handle.clone();
+        let chunk_converter = Arc::clone(&script_converter);
+        let chunk_emit = emit_converted.clone();
         let on_chunk: llm::ChunkCallback = Box::new(move |chunk: &str| {
-            let _ = app_handle.emit("llm:chunk", chunk);
-            if let Some(sender) = streaming_sender.as_ref() {
-                let _ = sender.send(chunk.to_string());
+            let ready = chunk_converter
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(chunk);
+            if let Some(ready) = ready {
+                chunk_emit(ready, streaming_sender.as_ref());
             }
         });
 
@@ -2220,8 +2276,27 @@ impl PipelineHandle {
             voice_intent: voice_intent.clone(),
         };
 
-        let polish_result = provider.polish(&llm_config, &req, Some(&on_chunk)).await;
+        let polish_result = provider
+            .polish(&llm_config, &req, Some(&on_chunk))
+            .await
+            .map(|mut response| {
+                response.polished_text = crate::chinese_script::convert(
+                    &response.polished_text,
+                    &config.polish_chinese_script,
+                );
+                response
+            });
         drop(on_chunk);
+        let remaining = script_converter
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .finish();
+        if let Some(remaining) = remaining {
+            emit_converted(remaining, flush_sender.as_ref());
+        }
+        // Every sender must be gone before finish(): the insert worker only
+        // completes once its channel closes.
+        drop(flush_sender);
         let streaming_report = match streaming_worker.take() {
             Some(worker) => worker.finish().await,
             None => None,
@@ -2676,6 +2751,9 @@ impl PipelineHandle {
             output::InsertResult::inserted(report.strategy, chars_inserted)
         };
 
+        if !report.failed {
+            self.last_output_inserted.store(true, Ordering::SeqCst);
+        }
         let warning = report
             .failed
             .then(|| streaming_insert_user_error(report.error_message.clone()));
@@ -2852,6 +2930,9 @@ impl PipelineHandle {
             output_outcome.insert_result.chars_inserted
         );
         let insert_result = output_outcome.insert_result.clone();
+        if insert_result.status == output::InsertStatus::Inserted {
+            self.last_output_inserted.store(true, Ordering::SeqCst);
+        }
         let _ = self
             .app_handle
             .emit("pipeline:insert_result", &insert_result);
@@ -3058,12 +3139,12 @@ mod tests {
     }
 
     #[test]
-    fn streaming_insert_strategy_defaults_to_disabled() {
+    fn streaming_insert_strategy_defaults_to_keyboard() {
         let config = storage::AppConfig::default();
 
         assert_eq!(
             streaming_insert_strategy_for_config(&config, false, true, true),
-            None
+            Some(output::InsertionStrategy::Keyboard)
         );
     }
 

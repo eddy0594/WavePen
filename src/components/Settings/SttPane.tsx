@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { isMacPlatform, useAppStore } from '../../stores/appStore'
+import { isMacPlatform, useAppStore, type PolishChineseScript } from '../../stores/appStore'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import {
   STT_PROVIDERS,
@@ -635,6 +635,22 @@ export function SttPane() {
             </option>
           ))}
         </select>
+      </FormField>
+
+      <FormField label={t('settings.chineseScript')}>
+        <select
+          aria-label={t('settings.chineseScript')}
+          value={config.polish_chinese_script}
+          onChange={(e) =>
+            updateConfig({ polish_chinese_script: e.target.value as PolishChineseScript })
+          }
+          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+        >
+          <option value="traditional">{t('settings.chineseScriptTraditional')}</option>
+          <option value="simplified">{t('settings.chineseScriptSimplified')}</option>
+          <option value="preserve">{t('settings.chineseScriptPreserve')}</option>
+        </select>
+        <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.chineseScriptDesc')}</p>
       </FormField>
 
       <FormField label={t('settings.maxRecordingDuration')}>

@@ -2,11 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hant</string>
+        <string>zh-Hans</string>
+    </array>
     <key>NSMicrophoneUsageDescription</key>
-    <string>OpenTypeless needs microphone access to capture voice input for speech-to-text.</string>
+    <string>WavePen needs microphone access to capture voice input for speech-to-text.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>OpenTypeless uses Apple Speech to transcribe your voice input when you choose the Apple Speech provider.</string>
+    <string>WavePen uses Apple Speech to transcribe your voice input when you choose the Apple Speech provider.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>OpenTypeless needs automation access to detect the active application for context-aware text output.</string>
+    <string>WavePen needs automation access to detect the active application for context-aware text output.</string>
 </dict>
 </plist>

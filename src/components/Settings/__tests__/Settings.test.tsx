@@ -601,7 +601,7 @@ describe('Settings tab 切换', () => {
 
     renderSettings()
 
-    expect(await screen.findByText('RightAlt')).toBeDefined()
+    expect(await screen.findByText('settings.rightAltKey')).toBeDefined()
     expect(screen.queryByText('settings.hotkeyInvalid')).toBeNull()
   })
 

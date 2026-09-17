@@ -238,3 +238,31 @@ mod tests {
         assert!(validate_correction_inputs("拓肯".to_string(), too_long).is_err());
     }
 }
+
+/// Reverts a correction learned from the user's edit (and the dictionary term
+/// it added), used by the capsule's Undo button.
+#[tauri::command]
+pub async fn undo_learned_correction(
+    state: tauri::State<'_, storage::DictionaryStore>,
+    pattern: String,
+    replacement: String,
+    remove_word: bool,
+) -> Result<(), String> {
+    let rules = state.correction_rules().await.map_err(|e| e.to_string())?;
+    for rule in rules
+        .iter()
+        .filter(|rule| rule.pattern == pattern && rule.replacement == replacement)
+    {
+        state
+            .remove_correction(rule.id)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    if remove_word {
+        let entries = state.list().await.map_err(|e| e.to_string())?;
+        for entry in entries.iter().filter(|entry| entry.word == replacement) {
+            state.remove(entry.id).await.map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}

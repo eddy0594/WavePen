@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Mic, FileText, Sparkles, Type, Keyboard, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../stores/appStore'
+import { formatHotkeyForPlatform } from '../../lib/hotkey-display'
 import { CapsuleLogo } from '../Capsule/CapsuleLogo'
 
 type DemoPhase = 'idle' | 'recording' | 'transcribing' | 'polishing' | 'complete'
@@ -123,7 +124,7 @@ export function QuickTestStep() {
           <span className="text-[11px] text-text-secondary">
             {config.hotkey_mode === 'hold' ? t('onboarding.test.hold') : t('onboarding.test.press')}{' '}
             <kbd className="px-1 py-0.5 bg-bg-tertiary rounded-[4px] text-[11px] font-mono text-text-primary font-medium border border-border">
-              {config.hotkey}
+              {formatHotkeyForPlatform(config.hotkey, t)}
             </kbd>{' '}
             {config.hotkey_mode === 'hold'
               ? t('onboarding.test.toTalk')

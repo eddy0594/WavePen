@@ -678,6 +678,14 @@ fn build_ask_stt_config(
         ),
         provider_region: (config.stt_provider == stt::aliyun_qwen3_asr::ALIYUN_QWEN3_ASR_PROVIDER)
             .then(|| config.stt_aliyun_qwen_region.clone()),
+        prompt: stt::transcription_hints::provider_supports_prompt(&config.stt_provider)
+            .then(|| {
+                stt::transcription_hints::build_transcription_prompt(
+                    &[],
+                    &config.polish_chinese_script,
+                )
+            })
+            .flatten(),
     }
 }
 
@@ -751,6 +759,7 @@ async fn answer_question(
     if should_use_byok(config, &llm_api_key) {
         return ask_via_byok(client, config, &llm_api_key, question, selected_text)
             .await
+            .map(|answer| crate::chinese_script::convert(&answer, &config.polish_chinese_script))
             .map_err(AppError::Config);
     }
 
@@ -1426,6 +1435,7 @@ pub async fn stop_ask_dictation(
             .is_some_and(|selected_text| selected_text.truncated);
 
         let config = config_state.load().await.map_err(|e| e.to_string())?;
+        let question = crate::chinese_script::convert(&question, &config.polish_chinese_script);
         let voice_intent = route_ask_intent(
             &question,
             used_selected_text,

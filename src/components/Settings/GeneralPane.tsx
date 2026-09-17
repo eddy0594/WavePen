@@ -96,9 +96,25 @@ export function GeneralPane() {
     !accessibilityTrusted &&
     hotkeyRegistrationError?.includes('Accessibility permission may be denied'),
   )
-  const dictationSpecialOptions = isMac ? [{ value: 'Fn', label: 'Fn' }] : []
-  const askSpecialOptions = isMac ? [{ value: 'Fn+Space', label: 'Fn + Space' }] : []
-  const translateSpecialOptions = isMac ? [{ value: 'Fn+LeftShift', label: 'Fn + Left Shift' }] : []
+  const rightOption = t('settings.rightOptionKey')
+  const dictationSpecialOptions = isMac
+    ? [
+        { value: 'Fn', label: 'Fn' },
+        { value: 'RightAlt', label: rightOption },
+      ]
+    : []
+  const askSpecialOptions = isMac
+    ? [
+        { value: 'Fn+Space', label: 'Fn + Space' },
+        { value: 'RightAlt+Space', label: `${rightOption} + Space` },
+      ]
+    : []
+  const translateSpecialOptions = isMac
+    ? [
+        { value: 'Fn+LeftShift', label: 'Fn + Left Shift' },
+        { value: 'RightAlt+LeftShift', label: `${rightOption} + Left Shift` },
+      ]
+    : []
   const dictationBindings = config.hotkeys.dictationBindings?.length
     ? config.hotkeys.dictationBindings
     : [config.hotkeys.dictation]
@@ -221,6 +237,24 @@ export function GeneralPane() {
             })
           }}
         />
+        {config.output_mode === 'keyboard' && (
+          <div className="mt-3">
+            <Toggle
+              checked={config.streaming_insert_enabled}
+              onChange={(checked) => updateConfig({ streaming_insert_enabled: checked })}
+              label={t('settings.streamingInsert')}
+            />
+          </div>
+        )}
+        {isMac && (
+          <div className="mt-3">
+            <Toggle
+              checked={config.auto_learn_corrections}
+              onChange={(checked) => updateConfig({ auto_learn_corrections: checked })}
+              label={t('settings.autoLearnCorrections')}
+            />
+          </div>
+        )}
         {config.output_mode === 'clipboard' &&
           platformCapabilities &&
           !platformCapabilities.clipboardAutoPasteReliable && (
@@ -261,6 +295,18 @@ export function GeneralPane() {
               onChange={(checked) => updateConfig({ capsule_auto_hide: checked })}
               label={t('settings.hideCapsuleWhenIdle')}
             />
+            {isMac && (
+              <div>
+                <Toggle
+                  checked={config.show_in_dock}
+                  onChange={(checked) => updateConfig({ show_in_dock: checked })}
+                  label={t('settings.showInDock')}
+                />
+                <p className="mt-1 pl-[54px] text-[11px] text-text-tertiary">
+                  {t('settings.showInDockHint')}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

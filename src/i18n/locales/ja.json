@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "WavePen",
     "tagline": "AI音声入力"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "cloudRecovery": {
-    "title": "OpenTypeless Cloud は一時的に利用できません",
+    "title": "WavePen Cloud は一時的に利用できません",
     "sttBody": "クラウド音声認識を利用できません。音声は再送していません。",
     "llmBody": "AI 文章調整を利用できません。元の文章は保持されています。",
     "tryAgain": "再試行",
@@ -61,7 +61,7 @@
     "openLlmSettings": "設定"
   },
   "home": {
-    "welcome": "OpenTypelessへようこそ",
+    "welcome": "WavePenへようこそ",
     "description": "{{hotkey}}を長押しして音声録音を開始します。音声が文字起こしされ、AIによる整形が行われます。",
     "totalRecordings": "総録音回数",
     "today": "今日",
@@ -127,11 +127,11 @@
     },
     "steps": {
       "welcome": "ようこそ",
-      "welcomeSub": "いくつかのステップでOpenTypelessを設定しましょう",
+      "welcomeSub": "いくつかのステップでWavePenを設定しましょう",
       "signIn": "サインイン",
       "signInSub": "アカウントに接続して始めましょう",
       "chooseMode": "モードを選択",
-      "chooseModeSub": "OpenTypelessの使用方法を選択してください",
+      "chooseModeSub": "WavePenの使用方法を選択してください",
       "speechRecognition": "音声認識",
       "speechRecognitionSub": "STTサービスを設定します",
       "aiPolish": "AI整形",
@@ -196,7 +196,7 @@
       "appWritingModesSub": "Scenesでメール、チャット、ドキュメントなどの既定の書き方を編集できます。"
     },
     "permissions": {
-      "subtitle": "OpenTypelessは機能に必要なときだけアクセスを求めます。",
+      "subtitle": "WavePenは機能に必要なときだけアクセスを求めます。",
       "microphone": "マイク",
       "microphoneDesc": "音声を録音します。",
       "textOutput": "テキスト出力",
@@ -270,7 +270,9 @@
       "account": "アカウント",
       "upgrade": "アップグレード",
       "exit": "終了"
-    }
+    },
+    "learnedCorrection": "Learned {{pattern}} → {{replacement}}",
+    "undoLearned": "Undo"
   },
   "settings": {
     "title": "設定",
@@ -295,6 +297,8 @@
     "shortcutRollback": "The previous shortcuts were restored.",
     "disableAskHotkey": "Askショートカットを無効化",
     "pressKeyCombination": "キーの組み合わせを押してください...",
+    "rightOptionKey": "Right Option",
+    "rightAltKey": "Right Alt",
     "clickToConfirm": "もう一度クリックして確認、または別の組み合わせを押してください",
     "holdToTalk": "長押しで話す",
     "toggleOnOff": "オン/オフ切り替え",
@@ -317,6 +321,7 @@
     "windowsSendInputNewlineShiftEnter": "Shift+Enter",
     "windowsSendInputNewlineCrlf": "CRLF",
     "streamingInsert": "AI出力をストリーム",
+    "autoLearnCorrections": "Learn from my corrections right after dictation",
     "other": "その他",
     "launchAtStartup": "起動時に自動起動",
     "startMinimized": "トレイに最小化して起動",
@@ -360,9 +365,14 @@
     "test": "テスト",
     "connectionSuccess": "接続に成功しました",
     "connectionFailed": "接続に失敗しました",
-    "storedLocally": "お使いのデバイスにローカル保存されます。OpenTypelessサーバーには送信されません。",
+    "storedLocally": "お使いのデバイスにローカル保存されます。WavePenサーバーには送信されません。",
     "credentialSaveFailed": "APIキーをOSの資格情報ストアに保存できませんでした。{{details}}",
     "sttLanguage": "言語",
+    "chineseScript": "Chinese output",
+    "chineseScriptDesc": "Convert Chinese transcripts and AI output to the script you read. Taiwan wording is used for Traditional.",
+    "chineseScriptPreserve": "Keep as recognized",
+    "chineseScriptTraditional": "Traditional Chinese (Taiwan)",
+    "chineseScriptSimplified": "Simplified Chinese",
     "model": "モデル",
     "fetchModels": "利用可能なモデルを取得",
     "modelsAvailable": "{{count}}件のモデルが利用可能",
@@ -410,6 +420,8 @@
     "historyMaxEntries": "Max entries",
     "historyPrivacyHint": "Set days to 0 to keep history by count only. History stays local.",
     "hideCapsuleWhenIdle": "アイドル時にカプセルを非表示",
+    "showInDock": "Show icon in Dock",
+    "showInDockHint": "When off, open WavePen from the menu bar icon.",
     "accessibilityPermission": "macOSアクセシビリティ",
     "accessibilityGranted": "権限が付与されました",
     "accessibilityRequired": "Required for Fn shortcut or keyboard output",
@@ -855,7 +867,7 @@
       "unknownUpstream": "カスタムサーバーの上限が不明なため、安全な既定値を使用します。",
       "unknownProvider": "未認識のプロバイダーのため、安全な上限を使用します。",
       "productSafety": "ストリーミングプロバイダー向けの安全なアプリ上限です。",
-      "managedCapability": "OpenTypeless Cloud に合わせて自動設定されています。",
+      "managedCapability": "WavePen Cloud に合わせて自動設定されています。",
       "encoderFallback": "管理対象の音声エンコーダーを利用できなかったため、この録音には短いローカル WAV 安全上限を使用しました。",
       "managedFallback": "クラウド機能情報がないか古いため、安全な 30 秒上限を使用します。"
     }
@@ -867,12 +879,12 @@
       "aliyunQwen3Asr": "Aliyun Qwen3 Realtime ASR",
       "volcengineDoubao": "Volcengine Doubao Realtime ASR",
       "glmAsr": "GLM-ASR (Zhipu)",
-      "openaiWhisper": "OpenAI Whisper",
+      "openaiWhisper": "OpenAI (GPT-4o Transcribe)",
       "groqWhisper": "Groq Whisper",
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "WavePen Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -887,7 +899,7 @@
       "claude": "Claude",
       "ollama": "Ollama (ローカル)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "WavePen Cloud"
     }
   }
 }

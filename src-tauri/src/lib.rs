@@ -1,6 +1,8 @@
 pub mod app_detector;
 pub mod audio;
+pub mod chinese_script;
 pub mod commands;
+pub mod correction_learning;
 pub mod credentials;
 pub mod dictionary_io;
 pub mod error;
@@ -8,6 +10,8 @@ pub mod hotkey;
 #[cfg(target_os = "linux")]
 mod linux_x11;
 pub mod llm;
+#[cfg(target_os = "macos")]
+mod macos_overlay;
 pub mod native_hotkey;
 pub mod output;
 pub mod pipeline;
@@ -170,6 +174,65 @@ fn sync_auto_start_preference(
     }
 }
 
+/// Shows or hides the Dock icon. Hidden apps keep the menu bar icon and windows.
+pub fn apply_dock_visibility(app: &tauri::AppHandle, visible: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let policy = if visible {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        if let Err(error) = app.set_activation_policy(policy) {
+            tracing::warn!("Failed to change Dock visibility: {error}");
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, visible);
+}
+
+/// App data folder used before the rename from SayWrite (com.saywrite.app).
+const LEGACY_APP_DATA_DIR_NAME: &str = "com.saywrite.app";
+const LEGACY_DATA_FILES: &[(&str, &str)] = &[
+    ("settings.json", "settings.json"),
+    ("saywrite.db", "wavepen.db"),
+    ("saywrite.db-wal", "wavepen.db-wal"),
+    ("saywrite.db-shm", "wavepen.db-shm"),
+];
+
+/// Copies settings, history, and dictionary from the pre-rename data folder on
+/// the first launch after the rename. The old folder is left untouched.
+fn migrate_legacy_app_data(data_dir: &std::path::Path) {
+    let Some(legacy_dir) = data_dir
+        .parent()
+        .map(|parent| parent.join(LEGACY_APP_DATA_DIR_NAME))
+    else {
+        return;
+    };
+    if let Err(error) = copy_legacy_data_files(&legacy_dir, data_dir) {
+        tracing::warn!("Failed to migrate data from the previous app name: {error}");
+    }
+}
+
+fn copy_legacy_data_files(
+    legacy_dir: &std::path::Path,
+    data_dir: &std::path::Path,
+) -> std::io::Result<bool> {
+    let already_initialized = data_dir.join("settings.json").exists();
+    if already_initialized || !legacy_dir.join("settings.json").exists() {
+        return Ok(false);
+    }
+    std::fs::create_dir_all(data_dir)?;
+    for (from, to) in LEGACY_DATA_FILES {
+        let source = legacy_dir.join(from);
+        if source.exists() {
+            std::fs::copy(&source, data_dir.join(to))?;
+        }
+    }
+    tracing::info!("Migrated settings, history, and dictionary from the previous app name");
+    Ok(true)
+}
+
 #[cfg(any(target_os = "macos", test))]
 fn should_restore_main_window_on_reopen(_has_visible_windows: bool) -> bool {
     true
@@ -217,7 +280,7 @@ fn build_ask_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWi
         "ask",
         tauri::WebviewUrl::App("index.html#ask".into()),
     )
-    .title("OpenTypeless Ask")
+    .title("WavePen Ask")
     .inner_size(400.0, 220.0)
     .min_inner_size(360.0, 180.0)
     .resizable(false)
@@ -253,6 +316,13 @@ pub fn ensure_ask_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::Webv
 
 pub fn show_ask_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
     let window = ensure_ask_window(handle)?;
+    #[cfg(target_os = "macos")]
+    if let Ok(ns_window) = window.ns_window() {
+        let ns_window = ns_window as usize;
+        let _ = handle.run_on_main_thread(move || unsafe {
+            macos_overlay::configure_ask_window(ns_window as *mut std::ffi::c_void);
+        });
+    }
     let _ = window.unminimize();
     let _ = window.show();
     let _ = window.set_focus();
@@ -278,6 +348,30 @@ mod tests {
     fn text_mentions(text: &str, keywords: &[&str]) -> bool {
         let normalized = text.to_ascii_lowercase();
         keywords.iter().any(|keyword| normalized.contains(keyword))
+    }
+
+    #[test]
+    fn legacy_app_data_is_copied_once_and_renamed() -> Result<()> {
+        let root = std::env::temp_dir().join(format!("wavepen-migrate-{}", uuid::Uuid::new_v4()));
+        let legacy = root.join(LEGACY_APP_DATA_DIR_NAME);
+        let current = root.join("com.wavepen.desktop");
+        std::fs::create_dir_all(&legacy)?;
+        std::fs::write(legacy.join("settings.json"), "{\"legacy\":true}")?;
+        std::fs::write(legacy.join("saywrite.db"), "db")?;
+
+        assert!(copy_legacy_data_files(&legacy, &current)?);
+        assert_eq!(std::fs::read_to_string(current.join("wavepen.db"))?, "db");
+        assert!(legacy.join("saywrite.db").exists());
+
+        std::fs::write(current.join("settings.json"), "{\"current\":true}")?;
+        assert!(!copy_legacy_data_files(&legacy, &current)?);
+        assert_eq!(
+            std::fs::read_to_string(current.join("settings.json"))?,
+            "{\"current\":true}"
+        );
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
     }
 
     #[test]
@@ -850,7 +944,7 @@ pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::from_default_env().add_directive(
-                "opentypeless=debug"
+                "opentypeless_lib=debug"
                     .parse()
                     .expect("static directive is valid"),
             ),
@@ -888,7 +982,6 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(action) = parse_cli_action(&args) {
@@ -916,12 +1009,22 @@ pub fn run() {
                 }
             }
 
+            // Keep the recording capsule visible on every Space, including full-screen apps.
+            #[cfg(target_os = "macos")]
+            if let Some(ns_window) = app
+                .get_webview_window("capsule")
+                .and_then(|window| window.ns_window().ok())
+            {
+                unsafe { macos_overlay::configure_capsule_window(ns_window) };
+            }
+
             let app_handle = app.handle().clone();
 
             // Initialize data directory and database
             let data_dir = app.path().app_data_dir()?;
+            migrate_legacy_app_data(&data_dir);
             std::fs::create_dir_all(&data_dir)?;
-            let db_path = data_dir.join("opentypeless.db");
+            let db_path = data_dir.join("wavepen.db");
 
             // Initialize stores
             let config_manager = storage::ConfigManager::new(app_handle.clone());
@@ -950,6 +1053,9 @@ pub fn run() {
             let mut initial_config =
                 tauri::async_runtime::block_on(config_manager.load()).unwrap_or_default();
             sync_auto_start_preference(&app_handle, &config_manager, &mut initial_config);
+            if !initial_config.show_in_dock {
+                apply_dock_visibility(&app_handle, false);
+            }
             app.manage(config_manager);
             app.manage(history_store);
             app.manage(dictionary_store);
@@ -1006,7 +1112,7 @@ pub fn run() {
                         .clone(),
                 )
                 .menu(&tray_menu)
-                .tooltip("OpenTypeless")
+                .tooltip("WavePen")
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "quit" => {
                         app.exit(0);
@@ -1193,7 +1299,7 @@ pub fn run() {
                 }
             }
 
-            tracing::info!("OpenTypeless started");
+            tracing::info!("WavePen started");
 
             // P1-2: Pre-warm HTTP connection pool in background
             let warm_handle = app_handle.clone();
@@ -1261,6 +1367,7 @@ pub fn run() {
             commands::dictionary::add_correction_rule,
             commands::dictionary::update_correction_rule,
             commands::dictionary::remove_correction_rule,
+            commands::dictionary::undo_learned_correction,
             commands::dictionary::set_correction_rule_enabled,
             commands::dictionary::preview_dictionary_import,
             commands::dictionary::commit_dictionary_import,

@@ -1,7 +1,8 @@
 // App metadata
 export const UI_LANGUAGES = [
+  { value: 'zh-TW', label: '繁體中文' },
   { value: 'en', label: 'English' },
-  { value: 'zh', label: '中文' },
+  { value: 'zh', label: '简体中文' },
   { value: 'ja', label: '日本語' },
   { value: 'ko', label: '한국어' },
   { value: 'fr', label: 'Français' },
@@ -12,12 +13,12 @@ export const UI_LANGUAGES = [
   { value: 'it', label: 'Italiano' },
 ] as const
 
-export const APP_NAME = 'OpenTypeless'
+export const APP_NAME = 'WavePen'
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? 'v0.1.42'
 export const CLIENT_VERSION_HEADER = 'X-OpenTypeless-Version'
 export const APP_VERSION_HEADER_VALUE = APP_VERSION.replace(/^v/i, '')
-export const APP_REPO_URL = 'https://github.com/tover0314-w/opentypeless'
-export const APP_LICENSE_URL = 'https://github.com/tover0314-w/opentypeless/blob/main/LICENSE'
+export const APP_REPO_URL = 'https://github.com/eddy0594/WavePen'
+export const APP_LICENSE_URL = 'https://github.com/eddy0594/WavePen/blob/main/LICENSE'
 // Cloud API base URL — defaults to www.opentypeless.com but can be overridden via VITE_API_BASE_URL env var.
 // All core features (BYOK mode) work without any cloud connection.
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://www.opentypeless.com'
@@ -118,7 +119,6 @@ export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'siliconflow', labelKey: 'providers.stt.siliconflow' },
   { value: APPLE_SPEECH_PROVIDER, labelKey: 'providers.stt.appleSpeech' },
   { value: CUSTOM_WHISPER_PROVIDER, labelKey: 'providers.stt.customWhisper' },
-  { value: 'cloud', labelKey: 'providers.stt.cloud' },
 ] as const
 
 export const VOLCENGINE_STT_RESOURCES = [
@@ -132,11 +132,24 @@ export const VOLCENGINE_STT_RESOURCES = [
   },
 ] as const
 
-export const ONBOARDING_STT_PROVIDERS = STT_PROVIDERS.filter(
-  (provider) =>
-    provider.value !== CUSTOM_WHISPER_PROVIDER &&
-    provider.value !== APPLE_SPEECH_PROVIDER &&
-    provider.value !== 'cloud',
+// Providers recommended for Traditional Chinese + English users are listed first.
+const RECOMMENDED_STT_ORDER = ['openai-whisper', 'groq-whisper', 'deepgram', 'assemblyai']
+const RECOMMENDED_LLM_ORDER = ['openai', 'gemini', 'claude', 'groq', 'openrouter']
+
+function recommendedFirst<T extends { value: string }>(items: readonly T[], order: string[]): T[] {
+  const rank = (value: string) => {
+    const index = order.indexOf(value)
+    return index === -1 ? order.length : index
+  }
+  return [...items].sort((a, b) => rank(a.value) - rank(b.value))
+}
+
+export const ONBOARDING_STT_PROVIDERS = recommendedFirst(
+  STT_PROVIDERS.filter(
+    (provider) =>
+      provider.value !== CUSTOM_WHISPER_PROVIDER && provider.value !== APPLE_SPEECH_PROVIDER,
+  ),
+  RECOMMENDED_STT_ORDER,
 )
 
 export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [
@@ -152,12 +165,9 @@ export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'claude', labelKey: 'providers.llm.claude' },
   { value: 'ollama', labelKey: 'providers.llm.ollama' },
   { value: 'openrouter', labelKey: 'providers.llm.openrouter' },
-  { value: 'cloud', labelKey: 'providers.llm.cloud' },
 ] as const
 
-export const ONBOARDING_LLM_PROVIDERS = LLM_PROVIDERS.filter(
-  (provider) => provider.value !== 'cloud',
-)
+export const ONBOARDING_LLM_PROVIDERS = recommendedFirst(LLM_PROVIDERS, RECOMMENDED_LLM_ORDER)
 
 export const LLM_DEFAULT_CONFIG: Record<string, { baseUrl: string; model: string }> = {
   zhipu: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },

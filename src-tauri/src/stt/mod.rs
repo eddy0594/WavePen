@@ -6,6 +6,7 @@ pub mod cloud;
 pub mod config;
 pub mod deepgram;
 pub mod managed_audio;
+pub mod transcription_hints;
 pub mod volcengine;
 pub mod whisper_compat;
 
@@ -26,6 +27,8 @@ pub struct SttConfig {
     pub operation_id: Option<String>,
     pub managed_audio: Option<managed_audio::ManagedAudioEncodingConfig>,
     pub provider_region: Option<String>,
+    /// Vocabulary/style hint for providers that accept an OpenAI-style `prompt`.
+    pub prompt: Option<String>,
 }
 
 impl Default for SttConfig {
@@ -39,6 +42,7 @@ impl Default for SttConfig {
             operation_id: None,
             managed_audio: None,
             provider_region: None,
+            prompt: None,
         }
     }
 }

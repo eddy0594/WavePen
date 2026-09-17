@@ -5,6 +5,7 @@ import { bindingFromHotkey, hotkeyFromBinding, isMacPlatform } from '../../store
 import type { HotkeyRole } from '../../lib/tauri'
 import type { ShortcutBinding } from '../../stores/appStore'
 import { pauseHotkey, resumeHotkey } from '../../lib/tauri'
+import { formatHotkeyForDisplay } from '../../lib/hotkey-display'
 
 const STANDALONE_KEYS = new Set([
   'Space',
@@ -66,6 +67,7 @@ export function HotkeyRecorder({
   const autoConfirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoStarted = useRef(false)
   const recordingRef = useRef(false)
+  const rightOptionHeldRef = useRef(false)
 
   const clearTimer = useCallback(() => {
     if (!autoConfirmTimer.current) return
@@ -128,10 +130,37 @@ export function HotkeyRecorder({
     startRecording()
   }, [autoStart, startRecording])
 
+  const queuePending = useCallback(
+    (combo: string) => {
+      setModifierHint(null)
+      setPending(combo)
+      if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current)
+      autoConfirmTimer.current = setTimeout(() => confirmHotkey(combo), 1500)
+    },
+    [confirmHotkey],
+  )
+
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       event.preventDefault()
       event.stopPropagation()
+
+      // macOS: Right Option works on its own (like Fn), or with Space / Left Shift.
+      if (isMac && event.code === 'AltRight') {
+        rightOptionHeldRef.current = true
+        if (!event.ctrlKey && !event.metaKey && !event.shiftKey) queuePending('RightAlt')
+        return
+      }
+      if (isMac && rightOptionHeldRef.current && !event.ctrlKey && !event.metaKey) {
+        if (event.code === 'Space') {
+          queuePending('RightAlt+Space')
+          return
+        }
+        if (event.code === 'ShiftLeft') {
+          queuePending('RightAlt+LeftShift')
+          return
+        }
+      }
 
       const parts: string[] = []
       if (isMac && event.metaKey) parts.push('Command')
@@ -170,22 +199,23 @@ export function HotkeyRecorder({
       if (parts.length === 0 && !STANDALONE_KEYS.has(keyName)) return
 
       parts.push(keyName)
-      const combo = parts.join('+')
-      setPending(combo)
-      if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current)
-      autoConfirmTimer.current = setTimeout(() => confirmHotkey(combo), 1500)
+      queuePending(parts.join('+'))
     },
-    [confirmHotkey, isMac],
+    [isMac, queuePending],
   )
 
   useEffect(() => {
     if (!recording) return
-    const clearModifierHint = () => setModifierHint(null)
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'AltRight') rightOptionHeldRef.current = false
+      setModifierHint(null)
+    }
     window.addEventListener('keydown', handleKeyDown, true)
-    window.addEventListener('keyup', clearModifierHint, true)
+    window.addEventListener('keyup', handleKeyUp, true)
     return () => {
+      rightOptionHeldRef.current = false
       window.removeEventListener('keydown', handleKeyDown, true)
-      window.removeEventListener('keyup', clearModifierHint, true)
+      window.removeEventListener('keyup', handleKeyUp, true)
       clearTimer()
     }
   }, [clearTimer, handleKeyDown, recording])
@@ -214,7 +244,11 @@ export function HotkeyRecorder({
               : 'border-transparent bg-bg-secondary text-text-primary hover:border-border'
           }`}
         >
-          {recording ? pending || modifierHint || t('settings.pressKeyCombination') : value}
+          {recording
+            ? (pending && formatHotkeyForDisplay(pending, t, isMac)) ||
+              modifierHint ||
+              t('settings.pressKeyCombination')
+            : formatHotkeyForDisplay(value, t, isMac)}
         </button>
         {recording && onCancel && (
           <button

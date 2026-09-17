@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "WavePen",
     "tagline": "Saisie vocale IA"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "cloudRecovery": {
-    "title": "OpenTypeless Cloud est temporairement indisponible",
+    "title": "WavePen Cloud est temporairement indisponible",
     "sttBody": "Reconnaissance vocale indisponible. L’audio n’a pas été renvoyé.",
     "llmBody": "Révision IA indisponible. Le texte original est conservé.",
     "tryAgain": "Réessayer",
@@ -61,7 +61,7 @@
     "openLlmSettings": "Réglages"
   },
   "home": {
-    "welcome": "Bienvenue dans OpenTypeless",
+    "welcome": "Bienvenue dans WavePen",
     "description": "Maintenez {{hotkey}} pour démarrer l'enregistrement vocal. Votre parole sera transcrite et éventuellement améliorée par l'IA.",
     "totalRecordings": "Enregistrements totaux",
     "today": "Aujourd'hui",
@@ -127,11 +127,11 @@
     },
     "steps": {
       "welcome": "Bienvenue",
-      "welcomeSub": "Configurez OpenTypeless en quelques étapes",
+      "welcomeSub": "Configurez WavePen en quelques étapes",
       "signIn": "Connexion",
       "signInSub": "Connectez votre compte pour commencer",
       "chooseMode": "Choisir le mode",
-      "chooseModeSub": "Sélectionnez comment vous souhaitez utiliser OpenTypeless",
+      "chooseModeSub": "Sélectionnez comment vous souhaitez utiliser WavePen",
       "speechRecognition": "Reconnaissance vocale",
       "speechRecognitionSub": "Configurez votre service STT",
       "aiPolish": "Amélioration IA",
@@ -196,7 +196,7 @@
       "appWritingModesSub": "Modifiez dans Scenes les modes par defaut pour e-mail, chat, documents et autres formats."
     },
     "permissions": {
-      "subtitle": "OpenTypeless demande l’accès seulement quand une fonction en a besoin.",
+      "subtitle": "WavePen demande l’accès seulement quand une fonction en a besoin.",
       "microphone": "Microphone",
       "microphoneDesc": "Capturer votre voix.",
       "textOutput": "Sortie texte",
@@ -270,7 +270,9 @@
       "account": "Compte",
       "upgrade": "Passer à Pro",
       "exit": "Quitter"
-    }
+    },
+    "learnedCorrection": "Learned {{pattern}} → {{replacement}}",
+    "undoLearned": "Undo"
   },
   "settings": {
     "title": "Paramètres",
@@ -295,6 +297,8 @@
     "shortcutRollback": "The previous shortcuts were restored.",
     "disableAskHotkey": "Désactiver le raccourci Ask",
     "pressKeyCombination": "Appuyez sur une combinaison de touches...",
+    "rightOptionKey": "Right Option",
+    "rightAltKey": "Right Alt",
     "clickToConfirm": "Cliquez à nouveau pour confirmer, ou appuyez sur une autre combinaison",
     "holdToTalk": "Maintenir pour parler",
     "toggleOnOff": "Basculer marche/arrêt",
@@ -317,6 +321,7 @@
     "windowsSendInputNewlineShiftEnter": "Shift+Enter",
     "windowsSendInputNewlineCrlf": "CRLF",
     "streamingInsert": "Diffuser la sortie IA",
+    "autoLearnCorrections": "Learn from my corrections right after dictation",
     "other": "Autre",
     "launchAtStartup": "Lancer au démarrage",
     "startMinimized": "Démarrer minimisé dans la barre système",
@@ -360,9 +365,14 @@
     "test": "Tester",
     "connectionSuccess": "Connexion réussie",
     "connectionFailed": "Échec de la connexion",
-    "storedLocally": "Stockée localement sur votre appareil. Jamais envoyée aux serveurs OpenTypeless.",
+    "storedLocally": "Stockée localement sur votre appareil. Jamais envoyée aux serveurs WavePen.",
     "credentialSaveFailed": "Impossible d’enregistrer la clé API dans le coffre système. {{details}}",
     "sttLanguage": "Langue",
+    "chineseScript": "Chinese output",
+    "chineseScriptDesc": "Convert Chinese transcripts and AI output to the script you read. Taiwan wording is used for Traditional.",
+    "chineseScriptPreserve": "Keep as recognized",
+    "chineseScriptTraditional": "Traditional Chinese (Taiwan)",
+    "chineseScriptSimplified": "Simplified Chinese",
     "model": "Modèle",
     "fetchModels": "Récupérer les modèles disponibles",
     "modelsAvailable": "{{count}} modèles disponibles",
@@ -410,6 +420,8 @@
     "historyMaxEntries": "Max entries",
     "historyPrivacyHint": "Set days to 0 to keep history by count only. History stays local.",
     "hideCapsuleWhenIdle": "Masquer la capsule au repos",
+    "showInDock": "Show icon in Dock",
+    "showInDockHint": "When off, open WavePen from the menu bar icon.",
     "accessibilityPermission": "Accessibilité macOS",
     "accessibilityGranted": "Autorisation accordée",
     "accessibilityRequired": "Required for Fn shortcut or keyboard output",
@@ -855,7 +867,7 @@
       "unknownUpstream": "La limite du serveur personnalisé est inconnue ; une valeur prudente est utilisée.",
       "unknownProvider": "Ce fournisseur n’est pas encore reconnu ; une limite sûre est utilisée.",
       "productSafety": "Une limite prudente de l’application pour ce fournisseur de streaming.",
-      "managedCapability": "Réglé automatiquement pour OpenTypeless Cloud.",
+      "managedCapability": "Réglé automatiquement pour WavePen Cloud.",
       "encoderFallback": "L’encodeur audio géré était indisponible ; cette session a utilisé la limite WAV locale plus courte.",
       "managedFallback": "Les capacités Cloud sont absentes ou obsolètes ; la limite sûre de 30 secondes est utilisée."
     }
@@ -867,12 +879,12 @@
       "aliyunQwen3Asr": "Aliyun Qwen3 Realtime ASR",
       "volcengineDoubao": "Volcengine Doubao Realtime ASR",
       "glmAsr": "GLM-ASR (Zhipu)",
-      "openaiWhisper": "OpenAI Whisper",
+      "openaiWhisper": "OpenAI (GPT-4o Transcribe)",
       "groqWhisper": "Groq Whisper",
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "WavePen Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -887,7 +899,7 @@
       "claude": "Claude",
       "ollama": "Ollama (Local)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "WavePen Cloud"
     }
   }
 }

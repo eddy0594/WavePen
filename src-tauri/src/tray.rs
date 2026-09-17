@@ -18,13 +18,24 @@ struct TrayLabels {
     keep_capsule_visible: &'static str,
     settings: &'static str,
     history: &'static str,
-    account: &'static str,
     about: &'static str,
     quit: &'static str,
 }
 
 fn get_tray_labels(lang: &str) -> TrayLabels {
     match lang {
+        "zh-TW" => TrayLabels {
+            show_window: "顯示視窗",
+            hide_window: "隱藏視窗",
+            start_recording: "開始錄音",
+            stop_recording: "停止錄音",
+            hide_capsule_when_idle: "閒置時隱藏膠囊",
+            keep_capsule_visible: "保持膠囊顯示",
+            settings: "設定",
+            history: "歷史紀錄",
+            about: "關於說寫 WavePen",
+            quit: "結束",
+        },
         "zh" => TrayLabels {
             show_window: "显示窗口",
             hide_window: "隐藏窗口",
@@ -34,8 +45,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "保持胶囊可见",
             settings: "设置",
             history: "历史记录",
-            account: "账户",
-            about: "关于 OpenTypeless",
+            about: "关于 WavePen",
             quit: "退出",
         },
         "ja" => TrayLabels {
@@ -47,8 +57,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "カプセルを表示したままにする",
             settings: "設定",
             history: "履歴",
-            account: "アカウント",
-            about: "OpenTypeless について",
+            about: "WavePen について",
             quit: "終了",
         },
         "ko" => TrayLabels {
@@ -60,8 +69,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "캡슐 항상 표시",
             settings: "설정",
             history: "기록",
-            account: "계정",
-            about: "OpenTypeless 정보",
+            about: "WavePen 정보",
             quit: "종료",
         },
         "fr" => TrayLabels {
@@ -73,8 +81,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "Garder la capsule visible",
             settings: "Paramètres",
             history: "Historique",
-            account: "Compte",
-            about: "À propos d'OpenTypeless",
+            about: "À propos de WavePen",
             quit: "Quitter",
         },
         "de" => TrayLabels {
@@ -86,8 +93,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "Kapsel sichtbar lassen",
             settings: "Einstellungen",
             history: "Verlauf",
-            account: "Konto",
-            about: "Über OpenTypeless",
+            about: "Über WavePen",
             quit: "Beenden",
         },
         "es" => TrayLabels {
@@ -99,8 +105,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "Mantener cápsula visible",
             settings: "Configuración",
             history: "Historial",
-            account: "Cuenta",
-            about: "Acerca de OpenTypeless",
+            about: "Acerca de WavePen",
             quit: "Salir",
         },
         "pt" => TrayLabels {
@@ -112,8 +117,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "Manter cápsula visível",
             settings: "Configurações",
             history: "Histórico",
-            account: "Conta",
-            about: "Sobre o OpenTypeless",
+            about: "Sobre o WavePen",
             quit: "Sair",
         },
         "ru" => TrayLabels {
@@ -125,8 +129,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "Оставлять капсулу видимой",
             settings: "Настройки",
             history: "История",
-            account: "Аккаунт",
-            about: "О программе OpenTypeless",
+            about: "О программе WavePen",
             quit: "Выход",
         },
         "it" => TrayLabels {
@@ -138,8 +141,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "Mantieni capsula visibile",
             settings: "Impostazioni",
             history: "Cronologia",
-            account: "Account",
-            about: "Informazioni su OpenTypeless",
+            about: "Informazioni su WavePen",
             quit: "Esci",
         },
         _ => TrayLabels {
@@ -151,8 +153,7 @@ fn get_tray_labels(lang: &str) -> TrayLabels {
             keep_capsule_visible: "Keep Capsule Visible",
             settings: "Settings",
             history: "History",
-            account: "Account",
-            about: "About OpenTypeless",
+            about: "About WavePen",
             quit: "Quit",
         },
     }
@@ -237,7 +238,6 @@ pub fn build_tray_menu(
     let sep2 = PredefinedMenuItem::separator(app)?;
     let settings = MenuItem::with_id(app, "settings", labels.settings, true, None::<&str>)?;
     let history = MenuItem::with_id(app, "history", labels.history, true, None::<&str>)?;
-    let account = MenuItem::with_id(app, "account", labels.account, true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
     let about = MenuItem::with_id(app, "about", labels.about, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)?;
@@ -252,7 +252,6 @@ pub fn build_tray_menu(
             &sep2,
             &settings,
             &history,
-            &account,
             &sep3,
             &about,
             &quit,

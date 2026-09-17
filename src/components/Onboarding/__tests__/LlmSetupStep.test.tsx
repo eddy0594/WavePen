@@ -73,12 +73,12 @@ describe('LlmSetupStep', () => {
 
     render(<LlmSetupStep />)
 
-    expect(screen.getAllByRole('combobox')[0]).toHaveValue('zhipu')
+    expect(screen.getAllByRole('combobox')[0]).toHaveValue('openai')
     await waitFor(() => {
       expect(mockStore.updateConfig).toHaveBeenCalledWith({
-        llm_provider: 'zhipu',
-        llm_base_url: 'https://open.bigmodel.cn/api/paas/v4',
-        llm_model: 'glm-4-flash',
+        llm_provider: 'openai',
+        llm_base_url: 'https://api.openai.com/v1',
+        llm_model: 'gpt-4o-mini',
       })
     })
   })

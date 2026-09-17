@@ -117,6 +117,15 @@ impl SttProvider for WhisperCompatProvider {
             None => return Ok(None),
         };
 
+        if super::transcription_hints::pcm16_is_silent(&self.audio_buffer) {
+            self.audio_buffer.clear();
+            tracing::info!(
+                "{}: recording is silent or too short, skipping transcription",
+                self.provider_config.provider_name
+            );
+            return Ok(None);
+        }
+
         if self.audio_buffer.is_empty() {
             tracing::info!(
                 "{}: no audio buffered, skipping",
@@ -152,6 +161,10 @@ impl SttProvider for WhisperCompatProvider {
                 }
             }
 
+            if let Some(prompt) = config.prompt.as_ref().filter(|p| !p.trim().is_empty()) {
+                form = form.text("prompt", prompt.clone());
+            }
+
             // Provider-specific extra fields
             for (key, value) in &self.provider_config.extra_fields {
                 form = form.text(key.clone(), value.clone());
@@ -184,6 +197,14 @@ impl SttProvider for WhisperCompatProvider {
                             self.provider_config.provider_name,
                             text.len()
                         );
+
+                        if super::transcription_hints::is_known_hallucination(&text) {
+                            tracing::info!(
+                                "{}: dropped a known silence hallucination",
+                                self.provider_config.provider_name
+                            );
+                            return Ok(None);
+                        }
 
                         return Ok(if text.is_empty() { None } else { Some(text) });
                     } else if status.as_u16() >= 500 && attempt < 2 {
@@ -274,6 +295,7 @@ mod tests {
                 operation_id: None,
                 managed_audio: None,
                 provider_region: None,
+                prompt: None,
             })
             .await;
 

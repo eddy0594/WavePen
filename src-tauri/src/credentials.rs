@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage::AppConfig;
 
-const SERVICE_NAME: &str = "OpenTypeless";
+const SERVICE_NAME: &str = "WavePen";
+/// Keychain service used before the app was renamed from SayWrite to WavePen.
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+const LEGACY_SERVICE_NAME: &str = "SayWrite";
 const API_KEY_ACCOUNT_SUFFIX: &str = "api_key";
 const STORED_CREDENTIAL_VERSION: u8 = 1;
 const CLOUD_SESSION_NAMESPACE: &str = "session";
@@ -150,8 +153,25 @@ fn write_system_secret(_account: &str, _secret: &str) -> Result<()> {
 fn read_system_secret(account: &str) -> Result<Option<String>> {
     match system_entry(account)?.get_password() {
         Ok(secret) => Ok(Some(secret)),
-        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(keyring::Error::NoEntry) => read_legacy_system_secret(account),
         Err(error) => Err(anyhow!("read system credential vault {account}: {error}")),
+    }
+}
+
+/// Moves a secret saved under the pre-rename service name to the current one.
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+fn read_legacy_system_secret(account: &str) -> Result<Option<String>> {
+    let Ok(legacy) = keyring::Entry::new(LEGACY_SERVICE_NAME, account) else {
+        return Ok(None);
+    };
+    match legacy.get_password() {
+        Ok(secret) => {
+            if write_system_secret(account, &secret).is_ok() {
+                let _ = legacy.delete_credential();
+            }
+            Ok(Some(secret))
+        }
+        Err(_) => Ok(None),
     }
 }
 
