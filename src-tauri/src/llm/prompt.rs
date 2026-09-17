@@ -15,7 +15,7 @@ Rules:
 2. CLEANUP: Remove filler words (um, uh, 嗯, 那个, 就是说, like, you know), false starts, and repetitions.
 3. LISTS: When the user enumerates items (signaled by words like 第一/第二, 首先/然后/最后, 一是/二是, first/second/third, etc.), format as a numbered list. CRITICAL: each list item MUST be on its own line.
 4. PARAGRAPHS: When the speech covers multiple distinct topics, separate them with a blank line. Do NOT split a single flowing thought into multiple paragraphs.
-5. Preserve the user's language (including mixed languages), all substantive content, technical terms, and proper nouns exactly. Do NOT add any words, phrases, or content that were not present in the original speech.
+5. Preserve the user's language (including mixed languages) unless a translation target language is specified later in these instructions, and preserve all substantive content, technical terms, and proper nouns exactly. Do NOT add any words, phrases, or content that were not present in the original speech.
 6. Output ONLY the processed text. No explanations, no quotes around output. Do not end the output with a terminal period (. or 。). Be consistent: do not mix formatting styles or punctuation conventions.
 7. SPANISH: For Spanish questions, use matching question punctuation (¿...?). Never open a Spanish question with ¿ and close it with ! unless the user clearly dictated an exclamation.
 8. NUMBERING: If the transcription already contains explicit numbering such as "1. item" or "one, item", normalize it to a single numbered list. Never duplicate numbering like "1. 1. Item".
@@ -240,6 +240,16 @@ pub fn build_context_system_prompt(options: ContextPromptOptions<'_>) -> String 
     prompt.push_str("\n\n[EXPLICIT_CUSTOM_POLISH]");
     append_custom_polish_prompt(&mut prompt, polish_custom_prompt);
 
+    // Restate the target language last: small models otherwise keep the
+    // spoken language because earlier rules ask to preserve it.
+    if translation_instruction(translate_enabled, target_lang, has_selected_text).is_some() {
+        if let Some(lang_name) = target_language_name(target_lang) {
+            prompt.push_str(&format!(
+                "\n\n[FINAL_OUTPUT_LANGUAGE]\nWrite the entire output in {lang_name}, even when the transcription is in another language. Do not keep the original language."
+            ));
+        }
+    }
+
     prompt
 }
 
@@ -307,16 +317,9 @@ fn legacy_context_summary(app_type: AppType) -> ContextProfileSummary {
     }
 }
 
-fn translation_instruction(
-    translate_enabled: bool,
-    target_lang: &str,
-    has_selected_text: bool,
-) -> Option<String> {
-    if !translate_enabled || target_lang.trim().is_empty() {
-        return None;
-    }
-
-    let lang_name = match target_lang.trim() {
+/// Display name for a translation target code, or `None` when unsupported.
+fn target_language_name(target_lang: &str) -> Option<&str> {
+    let name = match target_lang.trim() {
         "en" => "English",
         "zh" => "Chinese (中文)",
         "ja" => "Japanese (日本語)",
@@ -346,6 +349,19 @@ fn translation_instruction(
             }
         }
     };
+    Some(name)
+}
+
+fn translation_instruction(
+    translate_enabled: bool,
+    target_lang: &str,
+    has_selected_text: bool,
+) -> Option<String> {
+    if !translate_enabled || target_lang.trim().is_empty() {
+        return None;
+    }
+
+    let lang_name = target_language_name(target_lang)?;
 
     if has_selected_text {
         Some(format!(
@@ -509,6 +525,18 @@ mod tests {
         let prompt = build_system_prompt(AppType::General, &[], "", "preserve", false, "ja", false);
         assert!(!prompt.contains("translate the entire result into Japanese"));
         assert!(!prompt.contains("AFTER cleaning"));
+    }
+
+    #[test]
+    fn translation_prompt_ends_with_the_target_language_requirement() {
+        let prompt = build_system_prompt(AppType::General, &[], "", "preserve", true, "en", false);
+        let final_section = prompt.rsplit("[FINAL_OUTPUT_LANGUAGE]").next().unwrap();
+        assert!(final_section.contains("Write the entire output in English"));
+        assert!(prompt.contains("unless a translation target language is specified later"));
+
+        let dictation =
+            build_system_prompt(AppType::General, &[], "", "preserve", false, "en", false);
+        assert!(!dictation.contains("[FINAL_OUTPUT_LANGUAGE]"));
     }
 
     #[test]
