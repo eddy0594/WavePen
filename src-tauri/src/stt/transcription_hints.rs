@@ -6,6 +6,14 @@ use crate::chinese_script;
 /// OpenAI documents a 224-token prompt window for Whisper; stay well below it.
 const MAX_PROMPT_CHARS: usize = 400;
 
+/// Providers known to accept Ogg/Opus uploads, which are ~10x smaller than WAV.
+pub fn provider_accepts_ogg_opus(provider: &str) -> bool {
+    matches!(provider, "openai-whisper" | "groq-whisper")
+}
+
+/// WAV payloads above this size are compressed before upload (~12 s of audio).
+pub const OGG_OPUS_UPLOAD_THRESHOLD_BYTES: usize = 400_000;
+
 /// Providers whose transcription endpoint accepts an OpenAI-style `prompt` field.
 pub fn provider_supports_prompt(provider: &str) -> bool {
     matches!(
@@ -198,6 +206,16 @@ mod tests {
         assert!(is_known_hallucination("Thanks for watching!"));
         assert!(!is_known_hallucination("謝謝觀看這份報告的同事"));
         assert!(!is_known_hallucination(""));
+    }
+
+    #[test]
+    fn only_known_endpoints_receive_compressed_audio() {
+        assert!(provider_accepts_ogg_opus("openai-whisper"));
+        assert!(provider_accepts_ogg_opus("groq-whisper"));
+        assert!(!provider_accepts_ogg_opus("glm-asr"));
+        assert!(!provider_accepts_ogg_opus(
+            super::super::config::CUSTOM_WHISPER_PROVIDER
+        ));
     }
 
     #[test]

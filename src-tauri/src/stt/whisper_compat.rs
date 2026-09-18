@@ -30,6 +30,41 @@ pub struct WhisperCompatProvider {
 }
 
 impl WhisperCompatProvider {
+    /// Compresses the recording to Ogg/Opus for providers that accept it, which
+    /// cuts upload time on long dictations. Falls back to WAV on any failure.
+    fn compress_upload_if_supported(
+        &self,
+        wav_data: Vec<u8>,
+    ) -> (Vec<u8>, &'static str, &'static str) {
+        let provider = self.provider_config.provider_name.as_str();
+        if wav_data.len() < super::transcription_hints::OGG_OPUS_UPLOAD_THRESHOLD_BYTES
+            || !super::transcription_hints::provider_accepts_ogg_opus(provider)
+        {
+            return (wav_data, "audio.wav", "audio/wav");
+        }
+        let started = std::time::Instant::now();
+        match super::managed_audio::encode_pcm_to_ogg_opus(
+            &self.audio_buffer,
+            chrono::Utc::now().timestamp_subsec_nanos(),
+            super::managed_audio::ManagedAudioEncodingConfig::default(),
+        ) {
+            Ok(encoded) => {
+                tracing::debug!(
+                    "{}: compressed {} KB WAV to {} KB Ogg/Opus in {}ms",
+                    provider,
+                    wav_data.len() / 1024,
+                    encoded.bytes.len() / 1024,
+                    started.elapsed().as_millis()
+                );
+                (encoded.bytes, "audio.ogg", "audio/ogg")
+            }
+            Err(error) => {
+                tracing::warn!("{provider}: Opus compression failed, sending WAV: {error}");
+                (wav_data, "audio.wav", "audio/wav")
+            }
+        }
+    }
+
     pub fn new(provider_config: WhisperCompatConfig) -> Self {
         Self {
             provider_config,
@@ -136,18 +171,21 @@ impl SttProvider for WhisperCompatProvider {
 
         let audio_len_secs = self.audio_buffer.len() as f64 / (config.sample_rate as f64 * 2.0);
         let wav_data = Self::build_wav(&self.audio_buffer, config.sample_rate);
+        let (upload_data, upload_name, upload_mime) = self.compress_upload_if_supported(wav_data);
         self.audio_buffer.clear();
         tracing::info!(
-            "{}: sending {:.1}s of audio for transcription",
+            "{}: sending {:.1}s of audio for transcription ({} KB as {})",
             self.provider_config.provider_name,
-            audio_len_secs
+            audio_len_secs,
+            upload_data.len() / 1024,
+            upload_name
         );
 
         let mut attempt = 0u32;
         loop {
-            let file_part = reqwest::multipart::Part::bytes(wav_data.clone())
-                .file_name("audio.wav")
-                .mime_str("audio/wav")
+            let file_part = reqwest::multipart::Part::bytes(upload_data.clone())
+                .file_name(upload_name)
+                .mime_str(upload_mime)
                 .map_err(|e| AppError::Config(e.to_string()))?;
 
             let mut form = reqwest::multipart::Form::new()

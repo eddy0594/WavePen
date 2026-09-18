@@ -539,6 +539,24 @@ struct StreamingInsertWorkerContext {
     expected_target_label: String,
 }
 
+/// Longest batch handed to one keystroke call while streaming.
+const STREAMING_INSERT_BATCH_CHARS: usize = 400;
+
+/// Drains chunks that are already queued so they are typed in one call.
+fn coalesce_pending_chunks(
+    first: String,
+    receiver: &mut mpsc::UnboundedReceiver<String>,
+) -> String {
+    let mut batch = first;
+    while batch.chars().count() < STREAMING_INSERT_BATCH_CHARS {
+        match receiver.try_recv() {
+            Ok(next) => batch.push_str(&next),
+            Err(_) => break,
+        }
+    }
+    batch
+}
+
 async fn run_streaming_insert_worker(
     context: StreamingInsertWorkerContext,
     mut receiver: mpsc::UnboundedReceiver<String>,
@@ -558,6 +576,9 @@ async fn run_streaming_insert_worker(
         if abort_flag.load(Ordering::SeqCst) {
             break;
         }
+        // Typing goes through the main thread, which is slower than the model
+        // streams. Merge everything already queued into one keystroke batch.
+        let chunk = coalesce_pending_chunks(chunk, &mut receiver);
         if chunk.is_empty() {
             continue;
         }
@@ -573,6 +594,8 @@ async fn run_streaming_insert_worker(
         }
 
         report.attempted_chunks += 1;
+        let chunk_started = std::time::Instant::now();
+        let chunk_chars = chunk.chars().count();
         match output::output_stream_chunk(&app_handle, &chunk, strategy, windows_sendinput_options)
             .await
         {
@@ -581,6 +604,11 @@ async fn run_streaming_insert_worker(
                     && insert_result.chars_inserted == chunk.chars().count() =>
             {
                 report.inserted_text.push_str(&chunk);
+                tracing::debug!(
+                    "Streaming insert typed {} chars in {}ms",
+                    chunk_chars,
+                    chunk_started.elapsed().as_millis()
+                );
             }
             Ok(insert_result) if insert_result.chars_inserted > 0 => {
                 let partial_text: String =
@@ -3141,6 +3169,33 @@ mod tests {
 
         assert_eq!(strategy, output::InsertionStrategy::ClipboardCopyOnly);
         assert!(warning.is_none());
+    }
+
+    #[test]
+    fn queued_streaming_chunks_are_typed_as_one_batch() {
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        for chunk in ["今天", "天氣", "很好"] {
+            sender.send(chunk.to_string()).unwrap();
+        }
+        let first = receiver.blocking_recv().unwrap();
+
+        assert_eq!(
+            coalesce_pending_chunks(first, &mut receiver),
+            "今天天氣很好"
+        );
+    }
+
+    #[test]
+    fn coalescing_stops_at_the_batch_limit() {
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        for _ in 0..4 {
+            sender.send("a".repeat(200)).unwrap();
+        }
+        let first = receiver.blocking_recv().unwrap();
+
+        let batch = coalesce_pending_chunks(first, &mut receiver);
+        assert_eq!(batch.chars().count(), STREAMING_INSERT_BATCH_CHARS);
+        assert_eq!(receiver.blocking_recv().unwrap().chars().count(), 200);
     }
 
     #[test]
