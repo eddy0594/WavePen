@@ -1653,3 +1653,24 @@ mod tests {
         assert!(row.message.contains("text-only"));
     }
 }
+
+/// Keeps the recording capsule on top of the Space the user is looking at,
+/// including another app's full-screen Space. No-op outside macOS.
+#[tauri::command]
+pub fn order_capsule_front(app: tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        if let Some(ns_window) = app
+            .get_webview_window("capsule")
+            .and_then(|window| window.ns_window().ok())
+        {
+            let ns_window = ns_window as usize;
+            let _ = app.run_on_main_thread(move || unsafe {
+                crate::macos_overlay::order_capsule_front(ns_window as *mut std::ffi::c_void);
+            });
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+}

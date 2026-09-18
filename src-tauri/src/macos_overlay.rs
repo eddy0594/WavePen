@@ -110,6 +110,37 @@ pub unsafe fn configure_capsule_window(ns_window: *mut c_void) {
             | COLLECTION_FULL_SCREEN_AUXILIARY
     ];
     let _: () = msg_send![&*window, setLevel: STATUS_WINDOW_LEVEL];
+    log_window_state("capsule", window);
+}
+
+/// Orders the capsule in front on the Space the user is looking at.
+///
+/// `NSWindow.makeKeyAndOrderFront:` (what `show()` calls) can be ignored for a
+/// non-activating panel of a background app, which left the capsule invisible
+/// over full-screen apps. `orderFrontRegardless` has no such condition.
+///
+/// # Safety
+/// `ns_window` must be a live `NSWindow` pointer and this must run on the main thread.
+pub unsafe fn order_capsule_front(ns_window: *mut c_void) {
+    let Some(window) = (ns_window as *mut AnyObject).as_ref() else {
+        return;
+    };
+    let _: () = msg_send![window, orderFrontRegardless];
+}
+
+/// Logs the window class and the macOS flags that decide whether a window can
+/// appear over another app's full-screen Space, so problems are visible in logs.
+unsafe fn log_window_state(label: &str, window: &AnyObject) {
+    let behavior: usize = msg_send![window, collectionBehavior];
+    let style: usize = msg_send![window, styleMask];
+    let level: isize = msg_send![window, level];
+    tracing::info!(
+        "{label} window: class={}, nonactivating_panel={}, can_join_all_spaces={}, full_screen_auxiliary={}, level={level}",
+        window.class().name(),
+        style & STYLE_NONACTIVATING_PANEL != 0,
+        behavior & COLLECTION_CAN_JOIN_ALL_SPACES != 0,
+        behavior & COLLECTION_FULL_SCREEN_AUXILIARY != 0,
+    );
 }
 
 /// Shows the Ask answer window on the Space the user is currently on (including
@@ -129,4 +160,5 @@ pub unsafe fn show_ask_window(ns_window: *mut c_void) {
     ];
     let _: () = msg_send![&*window, setLevel: STATUS_WINDOW_LEVEL];
     let _: () = msg_send![&*window, makeKeyAndOrderFront: std::ptr::null::<AnyObject>()];
+    log_window_state("ask", window);
 }

@@ -962,6 +962,22 @@ impl PipelineHandle {
         }
     }
 
+    /// Re-applies the capsule's panel configuration before each recording, so a
+    /// window reset cannot leave it hidden behind full-screen apps.
+    fn ensure_capsule_overlay(&self) {
+        #[cfg(target_os = "macos")]
+        if let Some(ns_window) = self
+            .app_handle
+            .get_webview_window("capsule")
+            .and_then(|window| window.ns_window().ok())
+        {
+            let ns_window = ns_window as usize;
+            let _ = self.app_handle.run_on_main_thread(move || unsafe {
+                crate::macos_overlay::configure_capsule_window(ns_window as *mut std::ffi::c_void);
+            });
+        }
+    }
+
     fn set_state(&self, new_state: PipelineState) {
         self.state.store(new_state.as_u8(), Ordering::SeqCst);
         if new_state == PipelineState::Idle {
@@ -1129,6 +1145,7 @@ impl PipelineHandle {
         } else {
             crate::voice_intent::VoiceMode::Dictate
         };
+        self.ensure_capsule_overlay();
         tracing::info!(
             "Pipeline start: mode={:?}, translate_target={}",
             voice_mode,

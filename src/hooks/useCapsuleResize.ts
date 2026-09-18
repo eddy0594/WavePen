@@ -1,7 +1,13 @@
 import { useEffect, useRef } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { useAppStore, type PipelineState } from '../stores/appStore'
 
 export const LEARNED_CAPSULE_WIDTH = 280
+
+/** macOS orders a background app's panel in front only on request. */
+function orderCapsuleFront() {
+  invoke('order_capsule_front').catch(() => {})
+}
 
 interface CapsuleSize {
   width: number
@@ -131,6 +137,7 @@ export function useCapsuleResize() {
           }
           if (shouldShow) {
             await win.show().catch(() => {})
+            orderCapsuleFront()
           } else {
             await win.hide().catch(() => {})
           }
@@ -170,6 +177,7 @@ export function useCapsuleResize() {
 
         if (shouldShow) {
           await win.show().catch(() => {})
+          orderCapsuleFront()
         } else {
           await win.hide().catch(() => {})
         }
