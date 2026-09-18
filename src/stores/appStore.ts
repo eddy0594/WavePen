@@ -790,7 +790,7 @@ const defaultConfig: AppConfig = {
   windows_sendinput_newline_mode: 'enter',
   streaming_insert_enabled: true,
   auto_learn_corrections: true,
-  show_in_dock: true,
+  show_in_dock: false,
   selected_text_enabled: false,
   theme: 'system',
   auto_start: true,

@@ -12,6 +12,9 @@ const convert = OpenCC.Converter({ from: 'cn', to: 'twp' })
 const overrides = [
   [/OpenTypeless|WavePen/g, '說寫'],
   [/瀏覽器應用/g, '瀏覽器 App'],
+  [/全屏/g, '全螢幕'],
+  [/全螢幕應用/g, '全螢幕 App'],
+  [/全螢幕 App上/g, '全螢幕 App 上'],
   [/臺/g, '台'],
   [/([\u4e00-\u9fff]) 說寫/g, '$1說寫'],
   [/說寫 ([\u4e00-\u9fff])/g, '說寫$1'],

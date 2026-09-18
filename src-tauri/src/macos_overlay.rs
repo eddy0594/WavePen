@@ -126,6 +126,7 @@ pub unsafe fn order_capsule_front(ns_window: *mut c_void) {
         return;
     };
     let _: () = msg_send![window, orderFrontRegardless];
+    log_window_state("capsule (ordered front)", window);
 }
 
 /// Logs the window class and the macOS flags that decide whether a window can

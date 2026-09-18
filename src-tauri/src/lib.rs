@@ -1056,9 +1056,7 @@ pub fn run() {
             let mut initial_config =
                 tauri::async_runtime::block_on(config_manager.load()).unwrap_or_default();
             sync_auto_start_preference(&app_handle, &config_manager, &mut initial_config);
-            if !initial_config.show_in_dock {
-                apply_dock_visibility(&app_handle, false);
-            }
+            apply_dock_visibility(&app_handle, initial_config.show_in_dock);
             app.manage(config_manager);
             app.manage(history_store);
             app.manage(dictionary_store);

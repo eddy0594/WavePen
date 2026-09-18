@@ -422,7 +422,7 @@
     "historyPrivacyHint": "保留天数设为 0 时仅按条数保留。历史记录只保存在本机。",
     "hideCapsuleWhenIdle": "空闲时隐藏胶囊",
     "showInDock": "在 Dock 显示图标",
-    "showInDockHint": "关闭后，可从菜单栏图标打开 WavePen。",
+    "showInDockHint": "打开 Dock 图标后，macOS 不会在全屏应用上显示录音胶囊。菜单栏图标始终保留。",
     "accessibilityPermission": "macOS 辅助功能",
     "accessibilityGranted": "权限已授予",
     "accessibilityRequired": "Fn 快捷键或键盘输出需要此权限",

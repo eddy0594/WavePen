@@ -422,7 +422,7 @@
     "historyPrivacyHint": "保留天數設為 0 時僅按條數保留。歷史紀錄只儲存在本機。",
     "hideCapsuleWhenIdle": "空閒時隱藏膠囊",
     "showInDock": "在 Dock 顯示圖示",
-    "showInDockHint": "關閉後，可從選單列圖示開啟說寫。",
+    "showInDockHint": "開啟 Dock 圖示後，macOS 不會在全螢幕 App 上顯示錄音膠囊。選單列圖示始終保留。",
     "accessibilityPermission": "macOS 輔助功能",
     "accessibilityGranted": "權限已授予",
     "accessibilityRequired": "Fn 快速鍵或鍵盤輸出需要此權限",

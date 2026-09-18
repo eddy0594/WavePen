@@ -421,7 +421,7 @@
     "historyPrivacyHint": "Set days to 0 to keep history by count only. History stays local.",
     "hideCapsuleWhenIdle": "アイドル時にカプセルを非表示",
     "showInDock": "Show icon in Dock",
-    "showInDockHint": "When off, open WavePen from the menu bar icon.",
+    "showInDockHint": "With the Dock icon on, macOS hides the recording capsule over full-screen apps. WavePen always stays in the menu bar.",
     "accessibilityPermission": "macOSアクセシビリティ",
     "accessibilityGranted": "権限が付与されました",
     "accessibilityRequired": "Required for Fn shortcut or keyboard output",

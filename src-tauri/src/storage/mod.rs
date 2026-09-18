@@ -368,6 +368,8 @@ pub struct AppConfig {
     /// Learn correction rules when the user fixes dictated words right after insertion.
     pub auto_learn_corrections: bool,
     /// macOS: show the app icon in the Dock (the menu bar icon is always shown).
+    /// Off by default: macOS only lets an app without a Dock icon draw the
+    /// recording capsule over another app's full-screen Space.
     pub show_in_dock: bool,
     pub selected_text_enabled: bool,
     pub theme: String,
@@ -428,7 +430,7 @@ impl Default for AppConfig {
             // WavePen: type polished text as it arrives so output starts sooner.
             streaming_insert_enabled: true,
             auto_learn_corrections: true,
-            show_in_dock: true,
+            show_in_dock: false,
             selected_text_enabled: false,
             theme: "system".to_string(),
             auto_start: true,
