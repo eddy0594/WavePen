@@ -191,6 +191,33 @@ pub fn apply_dock_visibility(app: &tauri::AppHandle, visible: bool) {
     let _ = (app, visible);
 }
 
+/// Largest log file kept across launches before it is started over.
+const MAX_LOG_FILE_BYTES: u64 = 5 * 1024 * 1024;
+
+/// Opens `~/Library/Logs/WavePen/wavepen.log` (macOS) for appending, so
+/// problems that only show up after hours of use can be diagnosed afterwards.
+fn open_log_file() -> Option<std::fs::File> {
+    #[cfg(target_os = "macos")]
+    {
+        let dir = std::path::PathBuf::from(std::env::var_os("HOME")?)
+            .join("Library/Logs/WavePen");
+        std::fs::create_dir_all(&dir).ok()?;
+        let path = dir.join("wavepen.log");
+        let too_large = std::fs::metadata(&path)
+            .map(|meta| meta.len() > MAX_LOG_FILE_BYTES)
+            .unwrap_or(false);
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(!too_large)
+            .write(true)
+            .truncate(too_large)
+            .open(path)
+            .ok()
+    }
+    #[cfg(not(target_os = "macos"))]
+    None
+}
+
 /// App data folder used before the rename from SayWrite (com.saywrite.app).
 const LEGACY_APP_DATA_DIR_NAME: &str = "com.saywrite.app";
 const LEGACY_DATA_FILES: &[(&str, &str)] = &[
@@ -944,15 +971,24 @@ pub fn run() {
 
     apply_linux_workarounds();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::from_default_env().add_directive(
-                "opentypeless_lib=debug"
-                    .parse()
-                    .expect("static directive is valid"),
-            ),
-        )
-        .init();
+    let env_filter = EnvFilter::from_default_env().add_directive(
+        "opentypeless_lib=debug"
+            .parse()
+            .expect("static directive is valid"),
+    );
+    match open_log_file() {
+        Some(file) => {
+            use tracing_subscriber::fmt::writer::MakeWriterExt;
+            tracing_subscriber::fmt()
+                .with_env_filter(env_filter)
+                .with_ansi(false)
+                .with_writer(
+                    std::io::stdout.and(Mutex::new(file).with_max_level(tracing::Level::INFO)),
+                )
+                .init();
+        }
+        None => tracing_subscriber::fmt().with_env_filter(env_filter).init(),
+    }
 
     #[cfg(target_os = "linux")]
     log_linux_launch_diagnostics(xinitthreads_status);
