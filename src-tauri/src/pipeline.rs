@@ -1151,6 +1151,11 @@ impl PipelineHandle {
             voice_mode,
             config_data.translation.active_target
         );
+        // Re-check the provider connections while the user speaks: one left idle
+        // for minutes can be silently dead, and the upload would otherwise wait on it.
+        let warm = self.clone();
+        let warm_config = config_data.clone();
+        tokio::spawn(async move { warm.pre_warm_for(&warm_config).await });
         *self
             .preloaded_voice_mode
             .lock()
@@ -3014,10 +3019,13 @@ impl PipelineHandle {
     }
 
     /// Pre-warm the active STT and LLM hosts concurrently so the next dictation can reuse TLS.
-    /// Called after startup and whenever provider connection settings change.
+    /// Called after startup and whenever provider connection settings change; each recording
+    /// start also calls `pre_warm_for`.
     pub async fn pre_warm(&self) {
-        let config = self.load_config().await;
+        self.pre_warm_for(&self.load_config().await).await;
+    }
 
+    async fn pre_warm_for(&self, config: &storage::AppConfig) {
         let stt_endpoint = match config.stt_provider.as_str() {
             "cloud" => {
                 let base = crate::api_base_url();

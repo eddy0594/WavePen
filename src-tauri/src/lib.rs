@@ -7,6 +7,7 @@ pub mod credentials;
 pub mod dictionary_io;
 pub mod error;
 pub mod hotkey;
+pub mod http_hedge;
 #[cfg(target_os = "linux")]
 mod linux_x11;
 pub mod llm;

@@ -20,6 +20,15 @@ pub struct WhisperCompatConfig {
 /// Keeps the resulting WAV under 25 MB (OpenAI/Groq limit).
 const MAX_AUDIO_BYTES: usize = 24 * 1024 * 1024;
 
+/// When to race a second upload on a fresh connection. Hosted providers answer
+/// within ~1.5 s plus ~0.1 s per second of audio (at most 6.5 s in WavePen's
+/// logs, for a minute of audio). A custom server gets no second upload: it may
+/// be a local model slower than real time that a duplicate would only slow down.
+fn hedge_delay(provider_name: &str, audio_secs: f64) -> Option<std::time::Duration> {
+    (provider_name != super::config::CUSTOM_WHISPER_PROVIDER)
+        .then(|| std::time::Duration::from_secs_f64(6.0 + audio_secs * 0.1))
+}
+
 /// Generic provider for any OpenAI Whisper-compatible transcription API.
 /// Works with: OpenAI, Groq, SiliconFlow, GLM-ASR.
 pub struct WhisperCompatProvider {
@@ -181,12 +190,10 @@ impl SttProvider for WhisperCompatProvider {
             upload_name
         );
 
-        let mut attempt = 0u32;
-        loop {
+        let build_request = |client: &reqwest::Client| -> reqwest::Result<reqwest::RequestBuilder> {
             let file_part = reqwest::multipart::Part::bytes(upload_data.clone())
                 .file_name(upload_name)
-                .mime_str(upload_mime)
-                .map_err(|e| AppError::Config(e.to_string()))?;
+                .mime_str(upload_mime)?;
 
             let mut form = reqwest::multipart::Form::new()
                 .text("model", self.provider_config.model.to_string())
@@ -208,8 +215,7 @@ impl SttProvider for WhisperCompatProvider {
                 form = form.text(key.clone(), value.clone());
             }
 
-            let mut request = self
-                .client
+            let mut request = client
                 .post(&self.provider_config.endpoint)
                 .multipart(form)
                 .timeout(std::time::Duration::from_secs(60));
@@ -217,8 +223,18 @@ impl SttProvider for WhisperCompatProvider {
             if !config.api_key.trim().is_empty() {
                 request = request.header("Authorization", format!("Bearer {}", config.api_key));
             }
+            Ok(request)
+        };
+        let hedge_after = hedge_delay(&self.provider_config.provider_name, audio_len_secs);
 
-            let resp_result = request.send().await;
+        let mut attempt = 0u32;
+        loop {
+            let resp_result = match hedge_after {
+                Some(hedge_after) => {
+                    crate::http_hedge::send_hedged(&self.client, hedge_after, &build_request).await
+                }
+                None => build_request(&self.client)?.send().await,
+            };
 
             match resp_result {
                 Ok(resp) => {
@@ -317,6 +333,22 @@ impl SttProvider for WhisperCompatProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hosted_uploads_race_a_fresh_connection_well_after_normal_latency() {
+        assert_eq!(
+            hedge_delay("openai-whisper", 10.0),
+            Some(std::time::Duration::from_secs(7))
+        );
+        assert_eq!(
+            hedge_delay("openai-whisper", 60.0),
+            Some(std::time::Duration::from_secs(12))
+        );
+        assert_eq!(
+            hedge_delay(crate::stt::config::CUSTOM_WHISPER_PROVIDER, 10.0),
+            None
+        );
+    }
 
     #[tokio::test]
     async fn connect_allows_empty_api_key_when_not_required() {

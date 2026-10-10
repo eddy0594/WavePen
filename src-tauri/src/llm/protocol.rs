@@ -125,13 +125,27 @@ fn is_reasoning_model_without_sampling_controls(model: &str) -> bool {
         || model.starts_with("o4-")
 }
 
-pub fn request_timeout(provider: &str, base_url: &str, model: &str) -> Duration {
-    if detect_api_kind(provider, base_url) == LlmApiKind::AnthropicMessages
+fn may_think_before_answering(provider: &str, base_url: &str, model: &str) -> bool {
+    detect_api_kind(provider, base_url) == LlmApiKind::AnthropicMessages
         || is_reasoning_model_without_sampling_controls(model)
-    {
+}
+
+pub fn request_timeout(provider: &str, base_url: &str, model: &str) -> Duration {
+    if may_think_before_answering(provider, base_url, model) {
         Duration::from_secs(60)
     } else {
         Duration::from_secs(30)
+    }
+}
+
+/// How long to wait for the response before racing a second copy of the request
+/// on a fresh connection. Streaming responses from other models start within
+/// ~2 s; models that may think first get longer.
+pub fn hedge_delay(provider: &str, base_url: &str, model: &str) -> Duration {
+    if may_think_before_answering(provider, base_url, model) {
+        Duration::from_secs(20)
+    } else {
+        Duration::from_secs(5)
     }
 }
 
@@ -402,6 +416,22 @@ mod tests {
                 "gemini-2.5-flash"
             ),
             Duration::from_secs(30)
+        );
+    }
+
+    #[test]
+    fn hedging_waits_longer_for_models_that_may_think_first() {
+        assert_eq!(
+            hedge_delay("openai", "https://api.openai.com/v1", "gpt-4o-mini"),
+            Duration::from_secs(5)
+        );
+        assert_eq!(
+            hedge_delay("openai", "https://api.openai.com/v1", "gpt-5"),
+            Duration::from_secs(20)
+        );
+        assert!(
+            hedge_delay("openai", "https://api.openai.com/v1", "gpt-4o-mini")
+                < request_timeout("openai", "https://api.openai.com/v1", "gpt-4o-mini")
         );
     }
 

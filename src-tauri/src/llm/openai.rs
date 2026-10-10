@@ -105,25 +105,29 @@ impl LlmProvider for OpenAiProvider {
         let mut attempt = 0u32;
 
         loop {
-            let request = self
-                .client
-                .post(&endpoint)
-                .header("Content-Type", "application/json");
-            match protocol::apply_auth_headers(
-                request,
-                &config.provider,
-                &config.base_url,
-                &config.api_key,
+            let sent = crate::http_hedge::send_hedged(
+                &self.client,
+                protocol::hedge_delay(&config.provider, &config.base_url, &config.model),
+                |client| {
+                    let request = client
+                        .post(&endpoint)
+                        .header("Content-Type", "application/json");
+                    Ok(protocol::apply_auth_headers(
+                        request,
+                        &config.provider,
+                        &config.base_url,
+                        &config.api_key,
+                    )
+                    .json(&body)
+                    .timeout(protocol::request_timeout(
+                        &config.provider,
+                        &config.base_url,
+                        &config.model,
+                    )))
+                },
             )
-            .json(&body)
-            .timeout(protocol::request_timeout(
-                &config.provider,
-                &config.base_url,
-                &config.model,
-            ))
-            .send()
-            .await
-            {
+            .await;
+            match sent {
                 Ok(resp) => {
                     let status = resp.status();
                     if status.is_success() {
