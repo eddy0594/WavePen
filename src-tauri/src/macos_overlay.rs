@@ -16,9 +16,16 @@ use std::ffi::c_void;
 use std::sync::OnceLock;
 
 const COLLECTION_CAN_JOIN_ALL_SPACES: usize = 1 << 0;
+const COLLECTION_MOVE_TO_ACTIVE_SPACE: usize = 1 << 1;
 const COLLECTION_STATIONARY: usize = 1 << 4;
 const COLLECTION_IGNORES_CYCLE: usize = 1 << 6;
 const COLLECTION_FULL_SCREEN_AUXILIARY: usize = 1 << 8;
+const CAPSULE_COLLECTION_BEHAVIOR: usize = COLLECTION_CAN_JOIN_ALL_SPACES
+    | COLLECTION_STATIONARY
+    | COLLECTION_IGNORES_CYCLE
+    | COLLECTION_FULL_SCREEN_AUXILIARY;
+const ASK_COLLECTION_BEHAVIOR: usize =
+    COLLECTION_CAN_JOIN_ALL_SPACES | COLLECTION_FULL_SCREEN_AUXILIARY;
 const STYLE_NONACTIVATING_PANEL: usize = 1 << 7;
 /// `NSStatusWindowLevel`: above normal and floating windows, below menus.
 const STATUS_WINDOW_LEVEL: isize = 25;
@@ -149,13 +156,7 @@ pub unsafe fn configure_capsule_window(ns_window: *mut c_void) {
 unsafe fn apply_capsule_panel_setup(window: &mut AnyObject) {
     make_overlay_panel(window);
     let _: () = msg_send![&*window, setBecomesKeyOnlyIfNeeded: Bool::YES];
-    let _: () = msg_send![
-        &*window,
-        setCollectionBehavior: COLLECTION_CAN_JOIN_ALL_SPACES
-            | COLLECTION_STATIONARY
-            | COLLECTION_IGNORES_CYCLE
-            | COLLECTION_FULL_SCREEN_AUXILIARY
-    ];
+    let _: () = msg_send![&*window, setCollectionBehavior: CAPSULE_COLLECTION_BEHAVIOR];
     let _: () = msg_send![&*window, setLevel: STATUS_WINDOW_LEVEL];
 }
 
@@ -166,8 +167,7 @@ unsafe fn apply_capsule_panel_setup(window: &mut AnyObject) {
 /// It also re-applies the panel setup (so nothing that reset the window can
 /// keep it off full-screen Spaces), moves the capsule to the display under the
 /// pointer (a full-screen app on another display would otherwise never show
-/// it), and orders it out and in again if macOS still left it off the active
-/// Space.
+/// it), and moves it onto the active Space if macOS still left it elsewhere.
 ///
 /// # Safety
 /// `ns_window` must be a live `NSWindow` pointer and this must run on the main thread.
@@ -178,13 +178,51 @@ pub unsafe fn order_capsule_front(ns_window: *mut c_void) {
     apply_capsule_panel_setup(window);
     move_to_pointer_screen(window);
     let _: () = msg_send![&*window, orderFrontRegardless];
-    let on_active_space: bool = msg_send![&*window, isOnActiveSpace];
-    if !on_active_space {
-        tracing::warn!("capsule was not on the active Space after ordering front; re-ordering it");
-        let _: () = msg_send![&*window, orderOut: std::ptr::null::<AnyObject>()];
-        let _: () = msg_send![&*window, orderFrontRegardless];
-    }
+    ensure_on_active_space("capsule", window, CAPSULE_COLLECTION_BEHAVIOR);
     log_window_state("capsule (ordered front)", window);
+}
+
+/// Moves a just-ordered-front window onto the active Space when macOS left it
+/// on other Spaces only.
+///
+/// WindowServer keeps a per-window list of Spaces even for an all-Spaces
+/// window, and that list can stop covering the Space the user is on. A WavePen
+/// that had run for days still had the all-Spaces flag on its capsule, but the
+/// list held only Desktop 1 while the user was in a full-screen app, so every
+/// `orderFrontRegardless` drew it on Desktop 1, and ordering it out and in again
+/// kept the same list. On a test panel stranded the same way, switching the
+/// visible window to move-to-active-Space, ordering it front, and restoring
+/// `behavior` put it on the active Space and back on every Space (8/8 runs).
+///
+/// AppKit hands these changes to WindowServer when the current Core Animation
+/// transaction commits, so each step is flushed; without that the two behavior
+/// changes merge into none and the window stays where it was. The move lands
+/// asynchronously: `isOnActiveSpace` turns true within ~50 ms, so the next
+/// "ordered front" log line is the one that confirms it.
+unsafe fn ensure_on_active_space(label: &str, window: &AnyObject, behavior: usize) {
+    let on_active_space: bool = msg_send![window, isOnActiveSpace];
+    if on_active_space {
+        return;
+    }
+    tracing::warn!("{label} was not on the active Space after ordering front; moving it there");
+    let _: () = msg_send![
+        window,
+        setCollectionBehavior: COLLECTION_MOVE_TO_ACTIVE_SPACE
+            | COLLECTION_FULL_SCREEN_AUXILIARY
+            | COLLECTION_IGNORES_CYCLE
+    ];
+    let _: () = msg_send![window, orderFrontRegardless];
+    flush_window_changes();
+    let _: () = msg_send![window, setCollectionBehavior: behavior];
+    flush_window_changes();
+}
+
+/// Commits the pending Core Animation transaction, which is when AppKit sends
+/// window ordering and collection-behavior changes to WindowServer.
+unsafe fn flush_window_changes() {
+    if let Some(transaction) = AnyClass::get("CATransaction") {
+        let _: () = msg_send![transaction, flush];
+    }
 }
 
 /// Frame of the screen that contains the mouse pointer, in Cocoa coordinates.
@@ -281,12 +319,10 @@ pub unsafe fn show_ask_window(ns_window: *mut c_void) {
         return;
     };
     make_overlay_panel(window);
-    let _: () = msg_send![
-        &*window,
-        setCollectionBehavior: COLLECTION_CAN_JOIN_ALL_SPACES | COLLECTION_FULL_SCREEN_AUXILIARY
-    ];
+    let _: () = msg_send![&*window, setCollectionBehavior: ASK_COLLECTION_BEHAVIOR];
     let _: () = msg_send![&*window, setLevel: STATUS_WINDOW_LEVEL];
     let _: () = msg_send![&*window, makeKeyAndOrderFront: std::ptr::null::<AnyObject>()];
+    ensure_on_active_space("ask", window, ASK_COLLECTION_BEHAVIOR);
     log_window_state("ask", window);
 }
 
