@@ -43,7 +43,7 @@
     "@tauri-apps/plugin-store": "^2.5.0",
     "@tauri-apps/plugin-updater": "^2.13.3",
     "better-auth": "1.6.25",
-    "framer-motion": "^11.18",
+    "framer-motion": "^14.1.0",
     "i18next": "^26.4.4",
     "lucide-react": "^1.56.0",
     "react": "^19.3.0",
