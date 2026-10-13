@@ -193,6 +193,7 @@ pub fn apply_dock_visibility(app: &tauri::AppHandle, visible: bool) {
 }
 
 /// Largest log file kept across launches before it is started over.
+#[cfg(target_os = "macos")]
 const MAX_LOG_FILE_BYTES: u64 = 5 * 1024 * 1024;
 
 /// Opens `~/Library/Logs/WavePen/wavepen.log` (macOS) for appending, so
