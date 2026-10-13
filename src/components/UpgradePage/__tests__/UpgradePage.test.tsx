@@ -7,12 +7,7 @@ import {
 import { UpgradePage } from '../index'
 
 type MockPlan =
-  | 'free'
-  | 'pro'
-  | 'lifetime_starter'
-  | 'appsumo_tier1'
-  | 'appsumo_tier2'
-  | 'appsumo_tier3'
+  'free' | 'pro' | 'lifetime_starter' | 'appsumo_tier1' | 'appsumo_tier2' | 'appsumo_tier3'
 type MockSource = 'free' | 'creem' | 'stripe' | 'lifetime' | 'appsumo'
 type MockBillingProvider = 'stripe' | 'creem' | 'appsumo' | null
 type MockLicenseStatus = 'pending' | 'active' | 'refunded' | 'deactivated' | null

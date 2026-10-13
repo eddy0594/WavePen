@@ -121,11 +121,7 @@ export async function updateConfig(config: AppConfig): Promise<void> {
 export type RecordingLimitMode = 'auto' | 'custom'
 export type SttTransport = 'fileUpload' | 'streaming' | 'localBuffered' | 'managedUpload'
 export type RecordingLimitSource =
-  | 'provider'
-  | 'managedProduct'
-  | 'clientBuffer'
-  | 'productSafety'
-  | 'unknownUpstream'
+  'provider' | 'managedProduct' | 'clientBuffer' | 'productSafety' | 'unknownUpstream'
 
 export interface SttRecordingCapability {
   registryVersion: number
@@ -221,12 +217,7 @@ export interface HotkeyBindingStatus {
 export type HotkeyAdapter = 'tauriGlobalShortcut' | 'nativeHook' | 'unavailable'
 export type HotkeyInstallState = 'starting' | 'installed' | 'failed' | 'disabled'
 export type HotkeyRole =
-  | 'dictation'
-  | 'ask'
-  | 'translate'
-  | 'editSelection'
-  | 'switchScene'
-  | 'openApp'
+  'dictation' | 'ask' | 'translate' | 'editSelection' | 'switchScene' | 'openApp'
 
 export interface HotkeyStatusError {
   code: string
@@ -427,10 +418,7 @@ export type VoiceIntentKind =
   | 'search'
 
 export type VoiceOutputPlacement =
-  | 'insert_at_cursor'
-  | 'replace_selection'
-  | 'popup_answer'
-  | 'open_url'
+  'insert_at_cursor' | 'replace_selection' | 'popup_answer' | 'open_url'
 
 export type VoiceExecutionFallbackReason =
   | 'feature_disabled'

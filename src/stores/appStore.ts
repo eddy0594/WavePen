@@ -46,11 +46,7 @@ export type OutputMode = 'keyboard' | 'clipboard'
 export type PasteShortcut = 'ctrlV' | 'ctrlShiftV' | 'shiftInsert'
 export type WindowsSendInputNewlineMode = 'enter' | 'shiftEnter' | 'crlf'
 export type InsertionStrategy =
-  | 'auto'
-  | 'keyboard'
-  | 'clipboardPaste'
-  | 'clipboardCopyOnly'
-  | 'windowsSendInput'
+  'auto' | 'keyboard' | 'clipboardPaste' | 'clipboardCopyOnly' | 'windowsSendInput'
 export type InsertStatus = 'inserted' | 'copiedFallback' | 'failed' | 'partiallyInserted'
 export type HotkeyMode = 'hold' | 'toggle'
 
