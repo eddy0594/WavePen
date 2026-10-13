@@ -200,8 +200,7 @@ const MAX_LOG_FILE_BYTES: u64 = 5 * 1024 * 1024;
 fn open_log_file() -> Option<std::fs::File> {
     #[cfg(target_os = "macos")]
     {
-        let dir = std::path::PathBuf::from(std::env::var_os("HOME")?)
-            .join("Library/Logs/WavePen");
+        let dir = std::path::PathBuf::from(std::env::var_os("HOME")?).join("Library/Logs/WavePen");
         std::fs::create_dir_all(&dir).ok()?;
         let path = dir.join("wavepen.log");
         let too_large = std::fs::metadata(&path)

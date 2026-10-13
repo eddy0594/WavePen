@@ -357,7 +357,10 @@ mod tests {
 
         assert_eq!(
             origin_on_screen(capsule, external, laptop),
-            Point { x: -224.0, y: 896.0 }
+            Point {
+                x: -224.0,
+                y: 896.0
+            }
         );
     }
 }
