@@ -18,7 +18,7 @@ devtools = ["tauri/devtools"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "=2.11.2", features = ["tray-icon", "macos-private-api"] }
+tauri = { version = "=2.12.3", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-store = "2"
 tauri-plugin-clipboard-manager = "2"
@@ -74,7 +74,7 @@ libloading = "0.8"
 
 [dev-dependencies]
 plist = "1"
-tauri = { version = "=2.11.2", features = ["test"] }
+tauri = { version = "=2.12.3", features = ["test"] }
 
 [profile.release]
 codegen-units = 1
