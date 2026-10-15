@@ -42,7 +42,7 @@
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-store": "^2.5.0",
     "@tauri-apps/plugin-updater": "^2.13.3",
-    "better-auth": "1.6.25",
+    "better-auth": "1.7.7",
     "framer-motion": "^14.1.0",
     "i18next": "^26.4.4",
     "lucide-react": "^1.56.0",
@@ -67,7 +67,7 @@
     "opencc-js": "^1.4.2",
     "prettier": "^3.9.9",
     "tailwindcss": "^4.3.3",
-    "typescript": "~5.8.3",
+    "typescript": "~7.0.2",
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.4",
     "vitest": "^4.1.8"
