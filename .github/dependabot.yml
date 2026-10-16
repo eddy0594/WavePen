@@ -1,9 +1,13 @@
 version: 2
+# Routine version-update PRs are disabled (open-pull-requests-limit: 0).
+# Dependabot security updates are unaffected and still open PRs for
+# vulnerable dependencies.
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
       production:
         patterns: ["*"]
@@ -15,8 +19,10 @@ updates:
     directory: /src-tauri
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
