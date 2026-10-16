@@ -1,14 +1,48 @@
 name: CI
 
+# Only run when files that affect the build or tests change. Docs, issue
+# templates and other workflow files do not need a full build.
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'index.html'
+      - 'tsconfig*.json'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'eslint.config.js'
+      - '.prettierrc'
+      - '.github/workflows/ci.yml'
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'index.html'
+      - 'tsconfig*.json'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'eslint.config.js'
+      - '.prettierrc'
+      - '.github/workflows/ci.yml'
+  # Manual runs also check Rust on macOS (see check-rust below).
+  workflow_dispatch:
+
+# A newer push to the same PR or branch cancels the run still in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -24,24 +58,19 @@ jobs:
       - run: npx vitest run
 
   check-rust:
+    # macOS runners bill at 10x the Linux rate, so automatic runs check Linux
+    # only; macOS joins the matrix when the workflow is started by hand.
+    # WavePen ships macOS builds only, so Windows and Linux ARM are not checked.
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: windows-latest
-            platform_group: windows
-            target: x86_64-pc-windows-msvc
-          - platform: macos-latest
-            platform_group: macos
-            target: aarch64-apple-darwin
-          - platform: ubuntu-latest
-            platform_group: linux
-            target: x86_64-unknown-linux-gnu
-          - platform: ubuntu-22.04-arm
-            platform_group: linux
-            target: aarch64-unknown-linux-gnu
+        include: >-
+          ${{ fromJSON(github.event_name == 'workflow_dispatch'
+          && '[{"platform":"ubuntu-latest","target":"x86_64-unknown-linux-gnu"},{"platform":"macos-latest","target":"aarch64-apple-darwin"}]'
+          || '[{"platform":"ubuntu-latest","target":"x86_64-unknown-linux-gnu"}]') }}
 
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -57,12 +86,15 @@ jobs:
           targets: ${{ matrix.target }}
           components: clippy, rustfmt
 
+      # PR branches restore the cache from main but do not save their own copy;
+      # saving took minutes per run and PR caches are not shared across branches.
       - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src-tauri -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Linux dependencies
-        if: matrix.platform_group == 'linux'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev libxdo-dev
@@ -77,6 +109,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -89,8 +122,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      # Prebuilt binary; `cargo install cargo-audit` compiled it from source
+      # and took 4-6 minutes on every run.
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: cargo-audit
 
       # wayland-scanner 0.31.10 is currently the latest release and still pins
       # quick-xml 0.39 for Wayland protocol code generation. The vulnerable XML
