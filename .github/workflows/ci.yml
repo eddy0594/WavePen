@@ -31,7 +31,6 @@ on:
       - 'eslint.config.js'
       - '.prettierrc'
       - '.github/workflows/ci.yml'
-  # Manual runs also check Rust on macOS (see check-rust below).
   workflow_dispatch:
 
 # A newer push to the same PR or branch cancels the run still in progress.
@@ -58,16 +57,17 @@ jobs:
       - run: npx vitest run
 
   check-rust:
-    # macOS runners bill at 10x the Linux rate, so automatic runs check Linux
-    # only; macOS joins the matrix when the workflow is started by hand.
     # WavePen ships macOS builds only, so Windows and Linux ARM are not checked.
+    # The repo is public, so these runners do not use the account's Actions
+    # minutes. If it goes private again, macOS bills at 10x the Linux rate.
     strategy:
       fail-fast: false
       matrix:
-        include: >-
-          ${{ fromJSON(github.event_name == 'workflow_dispatch'
-          && '[{"platform":"ubuntu-latest","target":"x86_64-unknown-linux-gnu"},{"platform":"macos-latest","target":"aarch64-apple-darwin"}]'
-          || '[{"platform":"ubuntu-latest","target":"x86_64-unknown-linux-gnu"}]') }}
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 20
